@@ -1,0 +1,31 @@
+static_resources:
+  listeners:
+    - name: hiclaw-gateway
+      address:
+        socket_address:
+          address: 0.0.0.0
+          port_value: 8080
+      filter_chains:
+        - filters:
+            - name: envoy.filters.network.http_connection_manager
+              typed_config:
+                http_filters:
+                  - name: envoy.filters.http.lua
+                    typed_config:
+                      inline_code: |
+                        function envoy_on_request(request_handle)
+                          -- Remove the worker's consumer token
+                          local consumer_token = request_handle:headers():get("Authorization")
+                          request_handle:headers():remove("Authorization")
+
+                          -- Extract role to determine key pool
+                          local worker_role = request_handle:headers():get("X-Worker-Role")
+
+                          -- In a real Envoy setup, this would fetch from a secure dynamic cluster
+                          -- Here we represent the Lua transformation logic
+                          local real_key = "sk-real-nim-key-injected-from-higress-vault"
+
+                          -- Inject real credential bound for NVIDIA NIM
+                          request_handle:headers():add("Authorization", "Bearer " .. real_key)
+                        end
+                  - name: envoy.filters.http.router

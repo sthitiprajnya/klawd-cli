@@ -1,0 +1,10 @@
+groups:
+  - name: daemon_alerts
+    rules:
+      - alert: HighMemoryUsage
+        expr: container_memory_usage_bytes > 4e9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container using more than 4GB RAM."

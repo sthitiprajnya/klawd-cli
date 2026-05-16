@@ -2,8 +2,8 @@ import time
 import logging
 from typing import List
 
-from omni_agent.agents import PlannerAgent, EngineerAgent, ReviewerAgent
-from omni_agent.utils.memory import agent_memory
+from src.domain.agents import PlannerAgent, EngineerAgent, ReviewerAgent
+from src.utils.memory import agent_memory
 
 # Setup basic logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")

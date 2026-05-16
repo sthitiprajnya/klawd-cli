@@ -3,7 +3,7 @@ import logging
 logger = logging.getLogger("Memory")
 
 class AgentMemory:
-    def __init__(self, index_name: str = "omni_agent_memory"):
+    def __init__(self, index_name: str = "src_memory"):
         self.index_name = index_name
         logger.info(f"Initializing Memory manager (Mocked MemPalace backend integration).")
         self.mock_db = []
