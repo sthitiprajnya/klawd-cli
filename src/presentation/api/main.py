@@ -6,7 +6,7 @@ import uuid
 import logging
 from sqlalchemy.orm import Session
 
-from src.infrastructure.database import get_db, JobEntry, MemoryEntry
+from src.infrastructure.database import get_db, SessionLocal, JobEntry, MemoryEntry
 from src.application.workflows import workflow
 from src.domain.skills import skill_manager
 
@@ -42,23 +42,26 @@ async def get_skills():
     return {"skills": skill_manager.list_skills()}
 
 def execute_job(job_id: str, task: str):
-    db = next(get_db())
-    job = db.query(JobEntry).filter(JobEntry.id == job_id).first()
-    if not job: return
-
-    job.status = "processing"
-    db.commit()
-
+    db = SessionLocal()
     try:
-        plan, code, review = workflow.process_task(task)
-        job.status = "completed"
-        job.result = f"Plan: {plan[:50]}... Code: {code[:50]}..."
-    except Exception as e:
-        logger.error(f"Job {job_id} failed: {e}")
-        job.status = "failed"
-        job.result = str(e)
+        job = db.query(JobEntry).filter(JobEntry.id == job_id).first()
+        if not job: return
 
-    db.commit()
+        job.status = "processing"
+        db.commit()
+
+        try:
+            plan, code, review = workflow.process_task(task)
+            job.status = "completed"
+            job.result = f"Plan: {plan[:50]}... Code: {code[:50]}..."
+        except Exception as e:
+            logger.error(f"Job {job_id} failed: {e}")
+            job.status = "failed"
+            job.result = str(e)
+
+        db.commit()
+    finally:
+        db.close()
 
 @app.get("/", response_class=HTMLResponse)
 async def serve_dashboard():
