@@ -13,11 +13,9 @@ logger = logging.getLogger("NIMRouter")
 
 class NIMRouter:
     def __init__(self):
-        # Support up to 5 API keys passed as env vars API_KEY_1...5
-        # Can be mixed between NVIDIA NIM, Zhipu (GLM), Moonshot (Kimi), Minimax
         self.api_keys = []
         for i in range(1, 6):
-            key = os.getenv(f"API_KEY_{i}")
+            key = os.getenv(f"NIM_API_KEY_{i}")
             if key:
                 self.api_keys.append(key)
 
@@ -27,12 +25,14 @@ class NIMRouter:
 
         self.current_key_idx = 0
 
-        # Mapping advanced models for specific tasks to achieve Claude-level capabilities
+        # Maps tasks to specific advanced models as requested (Opus-level performance targeting)
+        # Note: In a production environment, routing to different providers requires mapping
+        # keys specifically to those providers' endpoints. We use a unified interface here.
         self.MODELS = {
             "complex": "moonshot-v1-128k",   # Kimi model for extreme context/complex reasoning
             "coding": "glm-4-plus",          # GLM for robust coding capabilities (closest to GLM-5.1 if available)
             "fast": "minimax-text-01",       # Minimax for quick planning/routing
-            "reflection": "meta/llama-3.1-405b-instruct" # NVIDIA NIM fallback/alternative
+            "reflection": "glm-4-plus"       # GLM for robust coding/reflection
         }
 
     def _get_next_client(self, task_type: str) -> OpenAI:
@@ -41,11 +41,9 @@ class NIMRouter:
         self.current_key_idx = (self.current_key_idx + 1) % len(self.api_keys)
 
         # Determine the base URL based on the task/model target
-        # In a real environment, you'd map specific keys to specific providers.
-        # Here we demonstrate the routing infrastructure.
-        base_url = "https://integrate.api.nvidia.com/v1" # Default NIM
+        base_url = "https://integrate.api.nvidia.com/v1" # Fallback
 
-        if task_type == "coding":
+        if task_type in ["coding", "reflection"]:
             base_url = "https://open.bigmodel.cn/api/paas/v4" # Zhipu/GLM
         elif task_type == "complex":
             base_url = "https://api.moonshot.cn/v1" # Moonshot/Kimi
@@ -59,7 +57,7 @@ class NIMRouter:
 
     def route_task(self, prompt: str, task_type: str = "coding") -> str:
         """
-        Intelligently routes a prompt to Kimi, GLM, Minimax, or NIM based on task.
+        Intelligently routes a prompt to Kimi, GLM, Minimax based on task.
         """
         model = self.MODELS.get(task_type, self.MODELS["coding"])
 
@@ -74,6 +72,9 @@ class NIMRouter:
         client = self._get_next_client(task_type)
 
         if self.api_keys[0].startswith("mock-"):
+            if "Majin Buu" in prompt:
+                # Specific mock response for the Absorber to write valid python code
+                return "```python\ndef absorbed_skill_func():\n    return 'Absorbed capability active.'\n```"
             return f"[MOCK RESPONSE from {model}] Processed: {prompt[:50]}..."
 
         try:

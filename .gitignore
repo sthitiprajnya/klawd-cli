@@ -2,3 +2,5 @@ __pycache__/
 *.py[cod]
 *$py.class
 .env
+*.db
+omni_agent/skills/absorbed_feature_*.py

@@ -15,14 +15,14 @@ def test_nim_router_routes_models():
     from omni_agent.utils.nim_router import NIMRouter
     test_router = NIMRouter()
 
-    # Fast task (Minimax)
+    # Fast task
     res_fast = test_router.route_task("Help", task_type="fast")
     assert "minimax-text-01" in res_fast
 
-    # Coding task (GLM)
+    # Coding task
     res_coding = test_router.route_task("Help", task_type="coding")
     assert "glm-4-plus" in res_coding
 
-    # Complex task (Kimi)
+    # Complex task
     res_complex = test_router.route_task("Help", task_type="complex")
     assert "moonshot-v1-128k" in res_complex
