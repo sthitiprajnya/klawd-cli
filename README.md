@@ -4,14 +4,13 @@ OmniAgent is a highly advanced, fully autonomous software engineering AI agent. 
 
 **Note:** This agent is strictly configured for benign software engineering (refactoring, architecture, documentation) and explicitly refuses to ingest, create, or execute offensive security or hacking tools.
 
-## Architecture & Mindset
+## Architecture
 
-OmniAgent is inspired by the bleeding-edge of agentic workflows:
-- **Intelligent NIM Routing**: Balances up to 5 API keys and routes logic intelligently. It leverages **GLM-4-plus** for deep coding tasks, **Kimi (Moonshot 128k)** for massive repository context parsing, and **Minimax** for fast routing.
-- **Hermes Self-Evolution**: The agent features a continuous Reviewer-to-Engineer reflection loop. It critiques its own output, iterates, and stores meta-lessons in long-term memory.
-- **GStack Autonomy**: OmniAgent is orchestrated into distinct sub-agents (Planner, Engineer, Reviewer, Absorber) working cohesively to resolve complex pipelines without human supervision.
-- **Deerflow Pipeline Execution**: Tasks are broken down into pipelines (DAGs) rather than linear scripts, ensuring robust edge-case handling.
-- **Majin Buu Absorption**: Can ingest open-source code repositories and extract their AST contexts to dynamically add new "skills" to its permanent repository.
+This application is built using Domain-Driven Design (DDD):
+- **src/domain**: Agents (Planner, Engineer, Reviewer, Absorber) and Skill definitions.
+- **src/infrastructure**: SQLAlchemy Database (Memory and Job Queues) and the intelligent NIMRouter (balances Kimi, Minimax, GLM over Nvidia NIM).
+- **src/application**: Autonomous execution workflows implementing the Hermes self-evolution loop and GStack logic.
+- **src/presentation**: FastAPI server and the embedded frontend dashboard (Vanilla JS/CSS).
 
 ## Installation (Ubuntu / Systemd)
 
@@ -26,7 +25,7 @@ pip install -r requirements.txt
 ```
 
 2. **Configure Environment**
-Create a `.env` file in the root directory and add your API keys:
+Create a `.env` file:
 ```env
 NIM_API_KEY_1=your_key_here
 NIM_API_KEY_2=your_key_here
@@ -36,18 +35,12 @@ NIM_API_KEY_2=your_key_here
 ```bash
 ./run_server.sh
 ```
-*You can now view the dashboard at `http://localhost:8000/`*
+*View the dashboard at `http://localhost:8000/`*
 
 4. **Install the Self-Evolution Daemon**
-To make the agent truly autonomous, install the R&D daemon which continuously feeds the API with self-improvement tasks.
 ```bash
 sudo cp omni_agent.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable omni_agent
 sudo systemctl start omni_agent
-```
-
-Check the daemon status:
-```bash
-sudo systemctl status omni_agent
 ```

@@ -2,5 +2,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 .env
+.pytest_cache/
 *.db
-omni_agent/skills/absorbed_feature_*.py
+src/infrastructure/skills/*.py
+tests/test_skills/*.py
