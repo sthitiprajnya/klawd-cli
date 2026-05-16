@@ -12,7 +12,7 @@ class BaseAgent(ABC):
 
     def process(self, prompt: str, task_type: str = "coding") -> str:
         """
-        Processes a prompt via the NIM router with this agent's system prompt.
+        Processes a prompt via the advanced router with this agent's system prompt.
         """
         logger.info(f"{self.name} ({self.role}) is processing task.")
         full_prompt = f"System: {self.system_prompt}\n\nUser: {prompt}"

@@ -1,10 +1,11 @@
 from .base import BaseAgent
 
-REVIEWER_PROMPT = """You are the QA Reviewer and Engineering Manager.
+REVIEWER_PROMPT = """You are the QA Reviewer, Engineering Manager, and Self-Evolution Node (Hermes style).
 Your job is to review the code provided by the Engineer.
 Look for logic bugs, performance issues, and general code quality.
-Ensure the code is strictly benign and does not contain any security exploitation tools.
-Provide constructive feedback or approve the code."""
+Ensure the code is strictly benign.
+Provide concrete, actionable feedback that the Engineer can use to self-evolve and improve the code.
+If the code is perfect, output 'APPROVED'."""
 
 class ReviewerAgent(BaseAgent):
     def __init__(self):
