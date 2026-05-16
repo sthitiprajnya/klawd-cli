@@ -10,15 +10,19 @@ class SkillManager:
         self.loaded_skills = {}
 
     def list_skills(self):
-        """Returns a list of currently absorbed skills."""
+        """Returns a list of currently absorbed skills with their context."""
         if not os.path.exists(self.skills_dir):
-            return []
+            return {}
 
-        skills = []
+        skills_context = {}
         for filename in os.listdir(self.skills_dir):
             if filename.endswith(".py") and not filename.startswith("__"):
-                skills.append(filename[:-3])
-        return skills
+                skill_name = filename[:-3]
+                if skill_name in self.loaded_skills:
+                    skills_context[skill_name] = self.loaded_skills[skill_name]["functions"]
+                else:
+                    skills_context[skill_name] = "Not loaded in memory context"
+        return skills_context
 
     def load_skill(self, skill_name: str):
         """
@@ -30,11 +34,9 @@ class SkillManager:
             with open(module_path, "r") as f:
                 source = f.read()
 
-            # Parse the AST to extract function definitions safely
             tree = ast.parse(source)
             functions = [node.name for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)]
 
-            # Store the signatures/metadata rather than executing the module
             self.loaded_skills[skill_name] = {
                 "functions": functions,
                 "source": source
