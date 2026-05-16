@@ -17,3 +17,10 @@ class BaseAgent(ABC):
         logger.info(f"{self.name} ({self.role}) is processing task.")
         full_prompt = f"System: {self.system_prompt}\n\nUser: {prompt}"
         return nim_router.route_task(full_prompt, task_type=task_type)
+
+    def reflect(self, outcome: str, feedback: str) -> str:
+        """
+        Self-reflection method to extract meta-lessons for future tasks.
+        """
+        prompt = f"Analyze the following execution and feedback. Extract generic, reusable lessons for future tasks.\n\nOutcome: {outcome}\nFeedback: {feedback}"
+        return self.process(prompt, task_type="reflection")
