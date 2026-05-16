@@ -1,0 +1,13 @@
+apiVersion: prism.openclaw.ai/v1
+kind: HookConfig
+hooks:
+  h1_prompt_received: { enabled: true, action: block }
+  h2_tool_requested: { enabled: true, action: block }
+  h3_subprocess_spawn: { enabled: true, action: block }
+  h4_file_write: { enabled: true, action: block }
+  h5_network_egress: { enabled: true, action: block }
+  h6_llm_output_raw: { enabled: true, action: block }
+  h7_memory_write: { enabled: true, action: block }
+  h8_skill_registration: { enabled: true, action: block }
+  h9_agent_spawn: { enabled: true, action: block }
+  h10_human_notify: { enabled: true, action: block }

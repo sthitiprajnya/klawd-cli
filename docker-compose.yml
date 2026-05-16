@@ -1,0 +1,117 @@
+version: "3.9"
+
+services:
+  nemoclaw-openShell:
+    image: nvcr.io/nvidia/nemoclaw:latest
+    restart: always
+    volumes:
+      - ./nemoclaw-policy.yaml:/etc/openShell/policy.yaml:ro
+
+  prism-sidecar:
+    image: ghcr.io/openclaw/prism:latest
+    restart: always
+    volumes:
+      - ./prism-hooks.yaml:/etc/prism/hooks.yaml:ro
+      - ./src/infrastructure/security/hooks.py:/etc/prism/hooks.py:ro
+      - ./src/infrastructure/security/hooks_impl.py:/etc/prism/hooks_impl.py:ro
+    ports: ["18767:18767"]
+
+  tuwunel-matrix:
+    image: ghcr.io/element-hq/tuwunel:latest
+    restart: always
+
+  higress-gateway:
+    image: higress-registry.cn-hangzhou.cr.aliyuncs.com/higress/higress:latest
+    ports: ["8080:8080"]
+    volumes:
+      - ./higress-config.yaml:/etc/higress/higress.yaml:ro
+
+  hiclaw-manager:
+    image: ghcr.io/agentscope-ai/hiclaw:v1.1.0
+    ports: ["18789:18789"]
+    volumes:
+      - ./hiclaw-team.yaml:/etc/hiclaw/team.yaml:ro
+
+  openhuman-core:
+    image: ghcr.io/tinyhumansai/openhuman-core:latest
+    ports: ["7788:7788"]
+    environment:
+      - OPENHUMAN_CORE_TOKEN=${OPENHUMAN_CORE_TOKEN}
+      - OPENHUMAN_APP_ENV=production
+
+  agentmemory:
+    image: node:22-alpine
+    working_dir: /app
+    command: npx -y @agentmemory/agentmemory
+    ports: ["3111:3111", "3113:3113"]
+
+  litellm-proxy:
+    image: ghcr.io/berriai/litellm:main-stable
+    depends_on: [redis]
+    volumes:
+      - ./litellm_config.yaml:/app/config.yaml:ro
+      - ./src/infrastructure/llm/task_classifier.py:/app/task_classifier.py:ro
+      - ./src/infrastructure/llm/routing_auditor.py:/app/routing_auditor.py:ro
+      - ./src/infrastructure/llm/thread_parker.py:/app/thread_parker.py:ro
+
+  deerflow-langgraph:
+    image: ghcr.io/bytedance/deer-flow:v2-stable
+    depends_on: [litellm-proxy, mempalace, agentmemory]
+
+  mempalace:
+    image: ghcr.io/mempalace/mempalace:v3.3-stable
+    environment:
+      - CHROMA_MODE=primary
+      - CHROMA_REPLICA_URL=http://mempalace-replica:8000
+
+  mempalace-replica:
+    image: ghcr.io/mempalace/mempalace:v3.3-stable
+    environment:
+      - CHROMA_MODE=replica
+      - CHROMA_PRIMARY_URL=http://mempalace:8000
+
+  skill-hot-reloader:
+    image: ghcr.io/agentscope-ai/hiclaw:v1.1.0
+    command: python /app/skill_registry.py
+    volumes:
+      - ./src/infrastructure/registry/skill_registry.py:/app/skill_registry.py:ro
+
+  arap-intake:
+    image: ghcr.io/daemon/arap-intake:latest
+    volumes:
+      - ./src/application/arap/circular_guard.py:/app/circular_guard.py:ro
+      - ./src/domain/arap/dedup.py:/app/dedup.py:ro
+      - ./src/domain/arap/immunization.py:/app/immunization.py:ro
+      - ./src/domain/arap/skill_parser.py:/app/skill_parser.py:ro
+
+  arap-competitive-cron:
+    image: ghcr.io/daemon/arap-intake:latest
+    command: python /app/competitive_cron.py
+    volumes:
+      - ./src/application/arap/competitive_cron.py:/app/competitive_cron.py:ro
+
+  hermes-agent:
+    image: ghcr.io/daemon/hermes-agent:v0.8.0
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.99.0
+    volumes:
+      - ./otel-config.yaml:/etc/otelcol/config.yaml:ro
+    ports: ["4317:4317", "4318:4318"]
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.57
+    ports: ["16686:16686"]
+
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./alert_rules.yml:/etc/prometheus/alert_rules.yml:ro
+
+  grafana:
+    image: grafana/grafana:10.4.0
+    ports: ["3000:3000"]
+
+  redis:
+    image: redis:7-alpine

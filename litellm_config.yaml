@@ -1,0 +1,29 @@
+model_list:
+  - model_name: nim-architect
+    litellm_params:
+      model: nvidia_nim/meta/llama-3.1-405b-instruct
+      api_key: os.environ/NIM_KEY_1
+      api_base: https://integrate.api.nvidia.com/v1
+      rpm: 35
+  - model_name: nim-coder
+    litellm_params:
+      model: nvidia_nim/z-ai/glm5.1
+      api_key: os.environ/NIM_KEY_2
+      api_base: https://integrate.api.nvidia.com/v1
+      rpm: 35
+
+router_settings:
+  routing_strategy: usage-based-routing
+  redis_host: redis
+  redis_port: 6379
+  num_retries: 0
+  on_all_keys_cooldown: "park"
+  park_handler: src/infrastructure/llm/thread_parker.py::ThreadParker
+
+litellm_settings:
+  pre_call_hooks:
+    - custom_callback_module: src/infrastructure/llm/task_classifier.py
+      callback_name: classify_and_route
+  post_call_hooks:
+    - custom_callback_module: src/infrastructure/llm/routing_auditor.py
+      callback_name: verify_model_contract

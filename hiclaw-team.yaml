@@ -1,0 +1,21 @@
+apiVersion: hiclaw.io/v1beta1
+kind: Team
+metadata:
+  name: engineering-daemon
+spec:
+  manager:
+    agent: orchestrator
+    model: nim-architect
+  workers:
+    - name: coder-alice
+      template: opencode-build
+      model: nim-coder
+      scope: [/workspace/src]
+    - name: absorber-dan
+      template: arap-intake
+      model: nim-architect
+      scope: [/workspace/absorbed, /var/lib/daemon/skills]
+  communication:
+    protocol: matrix
+    server: tuwunel
+    humanRoom: "#daemon-ops:daemon.local"
