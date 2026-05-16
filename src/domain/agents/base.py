@@ -1,6 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
-from omni_agent.utils.nim_router import nim_router
+from src.utils.nim_router import nim_router
 
 logger = logging.getLogger("BaseAgent")
 

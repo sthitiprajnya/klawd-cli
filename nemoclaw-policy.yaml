@@ -1,0 +1,22 @@
+apiVersion: openShell/v1
+kind: Policy
+agents:
+  - selector: template=arap-intake
+    filesystem:
+      allow: [/workspace/absorbed/**, /var/lib/daemon/skills/**, /tmp/arap-sandbox/**]
+      deny: [/etc/**, /var/lib/daemon/mempalace/wings/orchestrator-diary/**]
+    network:
+      egress_allowlist: [github.com, api.github.com, registry.npmjs.org, pypi.org, api.osv.dev]
+      egress_denylist: ["0.0.0.0/0"]
+    intent:
+      require_approval: [write_production_database, spawn_agent, modify_policy]
+      auto_approve:
+        - action: clone_repository
+          condition: "url matches github.com/*"
+
+  - selector: template=opencode-build
+    filesystem:
+      allow: [/workspace/src/**, /workspace/tests/**, /tmp/**]
+      deny: [/var/lib/daemon/**, /etc/**]
+    network:
+      egress_allowlist: # AIR GAPPED
