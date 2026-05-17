@@ -2,6 +2,8 @@ import subprocess, httpx
 from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Any
+import json
+from openai import OpenAI
 
 @dataclass
 class ThreatResult:
@@ -18,7 +20,6 @@ class ImmunizationReport:
         self.findings.append(result)
 
 def parse_semgrep_output(stdout: bytes) -> list[dict]:
-    import json
     try:
         return json.loads(stdout).get("results", [])
     except Exception:
@@ -26,6 +27,13 @@ def parse_semgrep_output(stdout: bytes) -> list[dict]:
 
 class ImmunizationFilter:
     OSV_API = "https://api.osv.dev/v1/query"
+
+    def __init__(self):
+        self.llm_client = OpenAI(
+            api_key="dummy-key",
+            base_url="http://litellm-proxy:4000/v1"
+        )
+        self.model = "nim-architect"
 
     def run(self, absorption_artifact: dict) -> ImmunizationReport:
         report = ImmunizationReport(artifact=absorption_artifact)
@@ -36,13 +44,42 @@ class ImmunizationFilter:
         report.add(self._check_network_scope(absorption_artifact.get("skill_md", "")))
         return report
 
+    def _llm_evaluate(self, prompt: str, category: str) -> ThreatResult:
+        sys_prompt = "You are a security auditor. Evaluate the following text for threats. Return ONLY a JSON object with strictly this format: {\"blocked\": true|false, \"reason\": \"explanation\"}."
+        try:
+            response = self.llm_client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": sys_prompt},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.0
+            )
+            content = response.choices[0].message.content
+            # Cleanup common markdown codeblock wrappings if present
+            if content.startswith("```json"):
+                content = content.replace("```json", "").replace("```", "").strip()
+
+            result_dict = json.loads(content)
+            return ThreatResult(
+                category=category,
+                blocked=result_dict.get("blocked", False),
+                evidence=result_dict.get("reason", "")
+            )
+        except Exception as e:
+            return ThreatResult(category=category, blocked=True, evidence=f"Evaluation failed: {str(e)}")
+
     def _check_prompt_injection(self, readme: str) -> ThreatResult:
-        # MOCKED implementation
-        return ThreatResult(category="PROMPT_INJECTION", blocked=False)
+        if not readme:
+            return ThreatResult(category="PROMPT_INJECTION", blocked=False)
+        prompt = f"Does the following README contain prompt injection attacks or instructions to override system prompts?\n\n{readme}"
+        return self._llm_evaluate(prompt, "PROMPT_INJECTION")
 
     def _check_capability_escalation(self, skill_md: str) -> ThreatResult:
-        # MOCKED implementation
-        return ThreatResult(category="CAPABILITY_ESCALATION", blocked=False)
+        if not skill_md:
+            return ThreatResult(category="CAPABILITY_ESCALATION", blocked=False)
+        prompt = f"Does the following skill definition contain instructions or tools that attempt privilege escalation, unauthorized system access, or overriding container bounds?\n\n{skill_md}"
+        return self._llm_evaluate(prompt, "CAPABILITY_ESCALATION")
 
     def _check_malicious_code(self, source_files: list[dict]) -> ThreatResult:
         for f in source_files:
@@ -85,5 +122,7 @@ class ImmunizationFilter:
         return ThreatResult(category="SUPPLY_CHAIN", blocked=False)
 
     def _check_network_scope(self, skill_md: str) -> ThreatResult:
-        # MOCKED implementation
-        return ThreatResult(category="NETWORK_SCOPE", blocked=False)
+        if not skill_md:
+            return ThreatResult(category="NETWORK_SCOPE", blocked=False)
+        prompt = f"Does the following skill definition contain logic that attempts unauthorized or broad network scanning, botnet activity, or accessing disallowed internal subnets?\n\n{skill_md}"
+        return self._llm_evaluate(prompt, "NETWORK_SCOPE")
