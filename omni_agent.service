@@ -1,0 +1,14 @@
+[Unit]
+Description=OmniAgent R&D Self-Evolution Daemon
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/omni_agent
+ExecStart=/opt/omni_agent/venv/bin/python /opt/omni_agent/r_and_d_daemon.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

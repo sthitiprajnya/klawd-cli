@@ -3,8 +3,8 @@ pydantic==2.9.2
 python-dotenv==1.0.1
 # removed mempalace as it is fully mocked in code due to version/install complexity
 pytest==8.3.3
-
-fastapi
-uvicorn
-websockets
-httpx
+fastapi==0.115.5
+uvicorn==0.32.1
+httpx==0.27.0
+requests==2.31.0
+sqlalchemy==2.0.36
