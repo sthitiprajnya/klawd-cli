@@ -10,14 +10,12 @@ r = redis.Redis(host="redis", port=6379, decode_responses=True)
 class DrawerLockTimeout(Exception): pass
 class StaleWriteError(Exception): pass
 
-# Replace mocked mempalace with real HTTP requests targeting the mempalace API mock
 class MemPalaceClient:
     def __init__(self):
         self.base_url = "http://mempalace:8000"
 
     def get_drawer_raw(self, wing: str, room: str, drawer_id: str) -> str:
         try:
-            # Simulated HTTP interaction via REST placeholder
             response = httpx.get(f"{self.base_url}/api/v1/drawers/{wing}/{room}/{drawer_id}")
             if response.status_code == 200:
                 return response.text
@@ -54,7 +52,7 @@ def write_with_version_check(wing: str, room: str, drawer_id: str, new_content: 
     current = mempalace.get_drawer_raw(wing, room, drawer_id)
     current_hash = hashlib.sha256(current.encode()).hexdigest()[:16] if current else "empty"
 
-    if expected_hash and current_hash != expected_hash:
+    if expected_hash and current_hash!= expected_hash:
         raise StaleWriteError("Drawer modified by another agent. Re-read and retry.")
 
     new_hash = hashlib.sha256(new_content.encode()).hexdigest()[:16]

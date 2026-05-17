@@ -18,12 +18,12 @@ router_settings:
   redis_port: 6379
   num_retries: 0
   on_all_keys_cooldown: "park"
-  park_handler: src/infrastructure/llm/thread_parker.py::ThreadParker
+  park_handler: /app/thread_parker.py::ThreadParker
 
 litellm_settings:
   pre_call_hooks:
-    - custom_callback_module: src/infrastructure/llm/task_classifier.py
+    - custom_callback_module: /app/task_classifier.py
       callback_name: classify_and_route
   post_call_hooks:
-    - custom_callback_module: src/infrastructure/llm/routing_auditor.py
+    - custom_callback_module: /app/routing_auditor.py
       callback_name: verify_model_contract

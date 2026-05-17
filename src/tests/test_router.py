@@ -36,7 +36,7 @@ def test_llm_router_routes_models(mock_openai):
     res_complex = test_router.route("Help", task_type="complex")
     assert res_complex == "Mocked response"
     mock_client.chat.completions.create.assert_called_with(
-        model="nim-architect",
+        model="nim-coder",
         messages=[{"role": "user", "content": "Help"}],
         temperature=0.2,
         max_tokens=4096,
