@@ -1,7 +1,7 @@
 import logging
 import httpx
 from abc import ABC, abstractmethod
-from src.utils.nim_router import nim_router
+from src.infrastructure.llm_router import llm_router
 
 logger = logging.getLogger("BaseAgent")
 
@@ -40,4 +40,4 @@ class BaseAgent(ABC):
         full_system_prompt = f"{self.base_system_prompt}{dynamic_context}"
 
         full_prompt = f"System: {full_system_prompt}\n\nUser: {prompt}"
-        return nim_router.route_task(full_prompt, task_type=task_type)
+        return llm_router.route(full_prompt, task_type=task_type)

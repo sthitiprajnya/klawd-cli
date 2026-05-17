@@ -1,16 +1,22 @@
 import time
 import threading
 import redis
+import os
+import logging
 
 r = redis.Redis(host="redis", port=6379, decode_responses=True)
 
 MAX_PARK_DURATION = 300
 
-# --- Mocks ---
-def get_all_configured_keys(pool: str) -> list: return ["key1", "key2"]
-def hiclaw_notify(msg: str): pass
+logger = logging.getLogger("ThreadParker")
+
+def get_all_configured_keys(pool: str) -> list:
+    keys = [os.getenv(f"NIM_API_KEY_{i}") for i in range(1, 6) if os.getenv(f"NIM_API_KEY_{i}")]
+    if not keys:
+        keys = ["dummy-key"]
+    return keys
+
 class ParkTimeout(Exception): pass
-# -------------
 
 class ThreadParker:
     def park_until_available(self, model_pool: str) -> str:
@@ -24,7 +30,7 @@ class ThreadParker:
             while True:
                 elapsed = time.monotonic() - start
                 if elapsed > MAX_PARK_DURATION:
-                    hiclaw_notify(f"Thread {thread_id} parked {elapsed}s waiting for {model_pool}.")
+                    logger.warning(f"Thread {thread_id} parked {elapsed}s waiting for {model_pool}.")
                     raise ParkTimeout(f"No key available after {MAX_PARK_DURATION}s")
 
                 available = self._find_available_key(model_pool)

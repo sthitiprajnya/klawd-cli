@@ -1,13 +1,15 @@
 import re
 import ipaddress
 import time
+import logging
 from pathlib import Path
 from collections import defaultdict, deque
 from src.infrastructure.security.hooks import HookPoint, PRISMVerdict
 
-# --- Mocks ---
-def audit_log(hook, kwargs, verdict): pass
-# -------------
+logger = logging.getLogger("PRISM_Hooks")
+
+def audit_log(hook, kwargs, verdict):
+    logger.warning(f"PRISM Blocked at {hook}: {verdict.reason}")
 
 INJECTION_PATTERNS = [r"ignore (all |previous )?instructions", r"jailbreak", r"system:\s*override"]
 

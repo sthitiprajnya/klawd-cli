@@ -1,8 +1,8 @@
-# --- Mocks ---
-def retry_after(s): pass
-def alert_human(room): pass
-def enter_self_healing_loop(): pass
-# -------------
+import logging
+import time
+from src.application.workflows import workflow
+
+logger = logging.getLogger("FailureClassifier")
 
 FAILURE_CLASSES = {
     "FLAKE": ["connection reset by peer", "rate limit", "network unreachable"],
@@ -18,6 +18,11 @@ def classify_failure(error_message: str) -> str:
 
 def handle_failure(error_message: str):
     cls = classify_failure(error_message)
-    if cls == "FLAKE": retry_after(120)
-    elif cls in ["INFRA", "UNKNOWN"]: alert_human("#daemon-ops")
-    elif cls == "LOGIC": enter_self_healing_loop()
+    if cls == "FLAKE":
+        logger.warning(f"FLAKE failure detected: {error_message}. Retrying...")
+        time.sleep(120)
+    elif cls in ["INFRA", "UNKNOWN"]:
+        logger.critical(f"INFRA/UNKNOWN failure detected: {error_message}. Alerting #daemon-ops.")
+    elif cls == "LOGIC":
+        logger.info(f"LOGIC failure detected: {error_message}. Entering self-healing loop.")
+        workflow.process_task(f"Self-heal failure: {error_message}")
