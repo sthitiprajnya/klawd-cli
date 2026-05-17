@@ -2,13 +2,7 @@ import time
 import threading
 import redis
 
-# r = redis.Redis(host="redis", port=6379, decode_responses=True)
-class RedisMock:
-    def sadd(self, *args, **kwargs): pass
-    def expire(self, *args, **kwargs): pass
-    def srem(self, *args, **kwargs): pass
-    def keys(self, *args, **kwargs): return []
-r = RedisMock()
+r = redis.Redis(host="redis", port=6379, decode_responses=True)
 
 MAX_PARK_DURATION = 300
 
