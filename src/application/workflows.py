@@ -4,7 +4,7 @@ import re
 from typing import Tuple
 from src.domain.agents import PlannerAgent, EngineerAgent, ReviewerAgent, AbsorberAgent
 from src.domain.skills import skill_manager
-from src.infrastructure.database import SessionLocal, MemoryEntry
+from src.utils.memory import agent_memory
 
 logger = logging.getLogger("Workflows")
 
@@ -20,23 +20,6 @@ class OmniWorkflow:
         match = re.search(r"```python\n(.*?)\n```", text, re.DOTALL)
         return match.group(1) if match else text
 
-    def store_memory(self, task: str, code: str, feedback: str):
-        db = SessionLocal()
-        try:
-            entry = MemoryEntry(task=task, result=code, feedback=feedback)
-            db.add(entry)
-            db.commit()
-        finally:
-            db.close()
-
-    def get_memory_context(self) -> str:
-        db = SessionLocal()
-        try:
-            entries = db.query(MemoryEntry).order_by(MemoryEntry.id.desc()).limit(3).all()
-            return "\n".join([f"Task: {e.task}\nResult: {e.result}" for e in entries])
-        finally:
-            db.close()
-
     def process_absorption(self, task: str) -> bool:
         logger.info("Starting Absorption Protocol")
         raw_code = self.absorber.absorb_repo(task)
@@ -44,7 +27,7 @@ class OmniWorkflow:
 
         skill_name = f"skill_{int(time.time())}"
         if skill_manager.load_skill(skill_name, clean_code):
-            self.store_memory("Absorption Protocol", clean_code, f"Absorbed {skill_name}")
+            agent_memory.store_outcome("Absorption Protocol", clean_code, f"Absorbed {skill_name}")
             return True
         return False
 
@@ -55,7 +38,7 @@ class OmniWorkflow:
 
         logger.info(f"Starting standard workflow: {task}")
 
-        past_lessons = self.get_memory_context()
+        past_lessons = agent_memory.retrieve_lessons(context=task)
         skills = skill_manager.list_skills()
         context = f"Prior Lessons:\n{past_lessons}\nAvailable Skills: {skills}"
 
@@ -75,7 +58,7 @@ class OmniWorkflow:
             final_review = review
 
         reflection = self.reviewer.reflect(code, final_review)
-        self.store_memory(task, code, f"Feedback: {final_review}\nMeta: {reflection}")
+        agent_memory.store_outcome(task, code, f"Feedback: {final_review}\nMeta: {reflection}")
 
         return plan, code, final_review
 
