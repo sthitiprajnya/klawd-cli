@@ -1,7 +1,9 @@
-class RoutingViolation(Exception):
-    pass
+import logging
+from litellm.integrations.custom_logger import CustomLogger
 
-class CustomLogger:
+logger = logging.getLogger("RoutingAuditor")
+
+class RoutingViolation(Exception):
     pass
 
 class RoutingAuditorHook(CustomLogger):
@@ -13,7 +15,6 @@ class RoutingAuditorHook(CustomLogger):
 
         if model == "nim-coder":
             try:
-                # LiteLLM passes standard openai response objects or dicts
                 if hasattr(response_obj, 'choices') and len(response_obj.choices) > 0:
                     content = response_obj.choices[0].message.content.lower()
                 else:
@@ -21,9 +22,10 @@ class RoutingAuditorHook(CustomLogger):
             except Exception:
                 content = ""
 
-            forbidden_keywords = ["architecture document", "adr", "master plan"]
+            forbidden_keywords = ["architecture document", "adr", "master plan", "strategic roadmap"]
             for kw in forbidden_keywords:
                 if kw in content:
+                    logger.error(f"Routing Violation: {model} generated unauthorized content '{kw}'.")
                     raise RoutingViolation(f"Model contract violation: nim-coder generated unauthorized content '{kw}'.")
 
     def async_log_success_event(self, kwargs, response_obj, start_time, end_time):

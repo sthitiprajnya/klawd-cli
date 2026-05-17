@@ -6,7 +6,7 @@ import uuid
 import logging
 from sqlalchemy.orm import Session
 
-from src.infrastructure.database import get_db, SessionLocal, JobEntry, MemoryEntry
+from src.infrastructure.database import get_db, SessionLocal, JobEntry
 from src.application.workflows import workflow
 from src.domain.skills import skill_manager
 

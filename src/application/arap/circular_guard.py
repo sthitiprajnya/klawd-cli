@@ -5,8 +5,11 @@ import logging
 
 logger = logging.getLogger("CircularGuard")
 
-def normalize_url(url: str) -> str: return url.lower().strip("/")
-class AbsorptionCycleError(Exception): pass
+def normalize_url(url: str) -> str:
+    return url.lower().strip("/")
+
+class AbsorptionCycleError(Exception):
+    pass
 
 @dataclass
 class AbsorptionNode:
@@ -22,7 +25,6 @@ class CircularDependencyGuard:
 
     def _load_from_mempalace(self):
         try:
-            # Query the JSON-RPC or REST interface of mempalace for dependency graph
             response = httpx.get(f"{self.base_url}/absorbed-knowledge/meta/dependency-graph")
             if response.status_code == 200:
                 entries = response.json().get("entries", [])
@@ -44,7 +46,7 @@ class CircularDependencyGuard:
 
         try:
             httpx.post(f"{self.base_url}/absorbed-knowledge/meta/dependency-graph", json={
-                "content": {"parent": norm_parent, "child": norm_child},
+                "data": {"parent": norm_parent, "child": norm_child},
                 "aaak_event": "dependency-registered"
             })
         except Exception as e:
