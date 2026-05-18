@@ -1,15 +1,16 @@
 import re
-import ipaddress
 import time
 import logging
 from pathlib import Path
 from collections import defaultdict, deque
-from src.infrastructure.security.hooks import HookPoint, PRISMVerdict
+from src.infrastructure.security.hooks import PRISMVerdict
 
 logger = logging.getLogger("PRISMSecurity")
 
 def audit_log(hook, kwargs, verdict):
-    logger.warning(f"PRISM BLOCKED - Hook: {hook}, Reason: {verdict.reason}, Args: {kwargs}")
+    logger.warning(
+        f"PRISM BLOCKED - Hook: {hook}, Reason: {verdict.reason}, Args: {kwargs}"
+    )
 
 INJECTION_PATTERNS = [r"ignore (all |previous )?instructions", r"jailbreak", r"system:\s*override"]
 
@@ -58,8 +59,13 @@ def h7_scan(content: str, wing: str, agent_role: str) -> PRISMVerdict:
         return PRISMVerdict(allow=False, reason="cross_wing_write")
     return PRISMVerdict(allow=True, reason="clean")
 
-def h8_scan(skill_md: str, artifact: dict) -> PRISMVerdict:
-    return PRISMVerdict(allow=True, reason="immunization_passed") # Mocks ImmunizationFilter pass
+def h8_scan(skill_md: str, artifact: dict | None) -> PRISMVerdict:
+    # H8 delegates deep validation to domain-level immunization pipeline (nim-architect evaluation).
+    if not skill_md.strip():
+        return PRISMVerdict(allow=False, reason="empty_skill_definition")
+    if not artifact or not artifact.get("source"):
+        return PRISMVerdict(allow=False, reason="missing_artifact_source")
+    return PRISMVerdict(allow=True, reason="immunization_passed")
 
 _active_agent_count = {}
 def h9_scan(parent_agent_id: str, requested_count: int = 1) -> PRISMVerdict:
@@ -73,7 +79,8 @@ _notify_log = defaultdict(lambda: deque(maxlen=100))
 def h10_scan(severity: str, message: str) -> PRISMVerdict:
     now = time.time()
     window = _notify_log[severity]
-    while window and now - window > 3600: window.popleft()
+    while window and (now - window[0]) > 3600:
+        window.popleft()
     if len(window) >= {"critical": 20, "warning": 10, "info": 5}.get(severity, 5):
         return PRISMVerdict(allow=False, reason="rate_limit_exceeded")
     window.append(now)
