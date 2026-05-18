@@ -47,3 +47,7 @@ def test_frontend_loads():
     response = client.get("/")
     assert response.status_code == 200
     assert "OmniAgent Enterprise Dashboard" in response.text
+
+def test_websocket():
+    with client.websocket_connect("/ws") as websocket:
+        assert websocket is not None
