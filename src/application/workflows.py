@@ -4,7 +4,7 @@ import re
 from typing import Tuple
 from src.domain.agents import PlannerAgent, EngineerAgent, ReviewerAgent, AbsorberAgent
 from src.domain.skills import skill_manager
-from src.utils.memory import agent_memory
+from src.infrastructure.memory.agent_memory import agent_memory
 
 logger = logging.getLogger("Workflows")
 
@@ -48,11 +48,9 @@ class OmniWorkflow:
         final_review = "APPROVED"
         for i in range(self.max_iterations):
             review = self.reviewer.review_code(code)
-            if "APPROVED" in review and i > 0:
+            if "APPROVED" in review:
                 final_review = review
                 break
-            elif "APPROVED" in review:
-                review = "[MOCK] Ensure edge case handling."
 
             code = self.engineer.iterate_code(code, review)
             final_review = review
