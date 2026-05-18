@@ -3,6 +3,8 @@ import uuid
 import httpx
 import logging
 import urllib.parse
+import re
+import yaml
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
@@ -13,11 +15,19 @@ def parse_skill_name(path):
     return path.split("/")[-1].replace(".md", "")
 
 def parse_skill_version(path):
-    return "1.0.0"  # In production, parse from YAML frontmatter
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            content = f.read()
+        match = re.match(r"^---\n(.*?)\n---\n", content, re.DOTALL)
+        if match:
+            frontmatter = yaml.safe_load(match.group(1))
+            return str(frontmatter.get("version", "1.0.0"))
+    except Exception:
+        pass
+    return "1.0.0"
 
 class HiClawClient:
     def nacos_register(self, service_name: str, metadata: dict):
-        # Nacos requires parameters in the query string, not just JSON body
         query_params = urllib.parse.urlencode({
             "serviceName": service_name,
             "ip": "127.0.0.1",
@@ -36,7 +46,6 @@ class MatrixClient:
         self.access_token = os.getenv("MATRIX_ACCESS_TOKEN", "dummy_token")
 
     def send_to_room(self, room: str, message: str):
-        # Matrix requires URL-encoded room IDs and a unique transaction ID for PUT requests
         room_id = urllib.parse.quote(room)
         txn_id = str(uuid.uuid4())
         url = f"http://tuwunel-matrix:8008/_matrix/client/v3/rooms/{room_id}/send/m.room.message/{txn_id}"
@@ -65,7 +74,7 @@ class SkillHotReloader(FileSystemEventHandler):
 
     def _reload_skill(self, path: str, action: str):
         skill_name = parse_skill_name(path)
-        version = parse_skill_version(path)
+        version    = parse_skill_version(path)
 
         self.hiclaw.nacos_register(
             service_name=f"skill.{skill_name}",
@@ -78,7 +87,6 @@ class SkillHotReloader(FileSystemEventHandler):
         )
 
 if __name__ == "__main__":
-    # Watchdog native event loop implementation
     event_handler = SkillHotReloader()
     observer = Observer()
     observer.schedule(event_handler, path="/var/lib/daemon/skills", recursive=True)

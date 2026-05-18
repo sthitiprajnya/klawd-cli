@@ -3,6 +3,7 @@ import time
 import threading
 import redis
 import httpx
+import uuid
 import logging
 
 logger = logging.getLogger("ThreadParker")
@@ -12,9 +13,14 @@ MAX_PARK_DURATION = 300
 
 def get_all_configured_keys(pool: str) -> list:
     keys = [os.getenv(f"NIM_API_KEY_{i}") for i in range(1, 6) if os.getenv(f"NIM_API_KEY_{i}")]
-    if not keys:
-        keys = ["dummy-key"]
-    return keys
+    return keys if keys else ["dummy-key"]
+
+def hiclaw_notify(msg: str):
+    try:
+        url = f"http://tuwunel-matrix:8008/_matrix/client/v3/rooms/%23daemon-ops%3Adaemon.local/send/m.room.message/{uuid.uuid4()}"
+        httpx.put(url, json={"msgtype": "m.text", "body": f"⚠️ {msg}"})
+    except Exception as e:
+        logger.error(f"Failed to send Matrix notification: {e}")
 
 class ParkTimeout(Exception): pass
 
@@ -30,7 +36,9 @@ class ThreadParker:
             while True:
                 elapsed = time.monotonic() - start
                 if elapsed > MAX_PARK_DURATION:
-                    logger.error(f"Thread {thread_id} parked {elapsed}s waiting for {model_pool}.")
+                    msg = f"Thread {thread_id} parked {elapsed:.1f}s waiting for {model_pool}."
+                    logger.error(msg)
+                    hiclaw_notify(msg)
                     raise ParkTimeout(f"No key available after {MAX_PARK_DURATION}s")
 
                 available = self._find_available_key(model_pool)
@@ -41,10 +49,7 @@ class ThreadParker:
 
     def _find_available_key(self, model_pool: str) -> str | None:
         cooldown_keys = r.keys(f"litellm:cooldown:{model_pool}:*")
-        # Extract registered NIM keys dynamically
-        configured_keys = get_all_configured_keys(model_pool)
-
-        for key in configured_keys:
+        for key in get_all_configured_keys(model_pool):
             if f"litellm:cooldown:{model_pool}:{key}" not in cooldown_keys:
                 return key
         return None

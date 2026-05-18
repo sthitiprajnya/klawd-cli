@@ -6,10 +6,10 @@ from pathlib import Path
 from collections import defaultdict, deque
 from src.infrastructure.security.hooks import HookPoint, PRISMVerdict
 
-logger = logging.getLogger("PRISM_Hooks")
+logger = logging.getLogger("PRISMSecurity")
 
 def audit_log(hook, kwargs, verdict):
-    logger.warning(f"PRISM Blocked at {hook}: {verdict.reason}")
+    logger.warning(f"PRISM BLOCKED - Hook: {hook}, Reason: {verdict.reason}, Args: {kwargs}")
 
 INJECTION_PATTERNS = [r"ignore (all |previous )?instructions", r"jailbreak", r"system:\s*override"]
 
@@ -89,5 +89,6 @@ HOOK_SCANNERS = {
 
 def prism_check(hook: str, **kwargs) -> PRISMVerdict:
     verdict = HOOK_SCANNERS[hook](**kwargs)
-    if not verdict.allow: audit_log(hook, kwargs, verdict)
+    if not verdict.allow:
+        audit_log(hook, kwargs, verdict)
     return verdict

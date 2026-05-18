@@ -1,7 +1,10 @@
-class CustomLogger:
-    pass
+import logging
+from litellm.integrations.custom_logger import CustomLogger
 
-class RoutingViolation(Exception): pass
+logger = logging.getLogger("TaskClassifier")
+
+class RoutingViolation(Exception):
+    pass
 
 ROUTING_RULES = [
     (["design", "architecture", "scope", "prd"], "nim-architect", "Architect"),
@@ -21,4 +24,5 @@ class TaskClassifierHook(CustomLogger):
                 matched_score, matched_model = hits, target_model
 
         if model == "nim-coder" and matched_model == "nim-architect" and matched_score >= 2:
+            logger.error("Routing Violation: nim-architect task sent to nim-coder.")
             raise RoutingViolation("Task requires nim-architect but nim-coder requested. Halting.")

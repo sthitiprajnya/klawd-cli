@@ -1,6 +1,7 @@
-import logging
 import time
-from src.application.workflows import workflow
+import logging
+import httpx
+import uuid
 
 logger = logging.getLogger("FailureClassifier")
 
@@ -13,16 +14,35 @@ FAILURE_CLASSES = {
 def classify_failure(error_message: str) -> str:
     msg = error_message.lower()
     for failure_class, patterns in FAILURE_CLASSES.items():
-        if any(p in msg for p in patterns): return failure_class
+        if any(p in msg for p in patterns):
+            return failure_class
     return "UNKNOWN"
+
+def retry_after(seconds: int):
+    logger.warning(f"FLAKE failure detected. Retrying after {seconds} seconds.")
+    time.sleep(seconds)
+
+def alert_human(room: str, error_message: str):
+    logger.critical(f"INFRA failure detected: {error_message}")
+    try:
+        room_id = room.replace("#", "%23").replace(":", "%3A")
+        url = f"http://tuwunel-matrix:8008/_matrix/client/v3/rooms/{room_id}/send/m.room.message/{uuid.uuid4()}"
+        httpx.put(url, json={"msgtype": "m.text", "body": f"🚨 URGENT INFRA FAILURE: {error_message}"})
+    except Exception as e:
+        logger.error(f"Failed to alert human on Matrix: {e}")
+
+def enter_self_healing_loop(error_message: str):
+    logger.info(f"LOGIC failure detected. Entering self-healing loop for: {error_message}")
+    try:
+        httpx.post("http://localhost:8000/api/v1/jobs", json={"task": f"Self-heal failure: {error_message}"})
+    except Exception as e:
+        logger.error(f"Failed to trigger self-healing job: {e}")
 
 def handle_failure(error_message: str):
     cls = classify_failure(error_message)
     if cls == "FLAKE":
-        logger.warning(f"FLAKE failure detected: {error_message}. Retrying...")
-        time.sleep(120)
+        retry_after(120)
     elif cls in ["INFRA", "UNKNOWN"]:
-        logger.critical(f"INFRA/UNKNOWN failure detected: {error_message}. Alerting #daemon-ops.")
+        alert_human("#daemon-ops:daemon.local", error_message)
     elif cls == "LOGIC":
-        logger.info(f"LOGIC failure detected: {error_message}. Entering self-healing loop.")
-        workflow.process_task(f"Self-heal failure: {error_message}")
+        enter_self_healing_loop(error_message)
