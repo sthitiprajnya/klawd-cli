@@ -75,3 +75,20 @@ Check the daemon status:
 ```bash
 sudo systemctl status omni_agent
 ```
+
+
+## Skill Schema Validation
+
+Skill discovery only loads files named `SKILL.md` and validates frontmatter before registration.
+
+Required frontmatter fields:
+
+- `name`
+- `description`
+- `triggers`
+- `dependencies`
+- `version`
+- `author`
+- `license`
+
+For full schema details and examples, see `docs/skill_schema.md`.

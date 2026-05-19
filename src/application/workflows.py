@@ -5,12 +5,21 @@ import re
 import subprocess
 from typing import Any
 
+from src.application.prompt_registry import PromptVersionRegistry
+
 from src.domain.agents import PlannerAgent, EngineerAgent, ReviewerAgent, AbsorberAgent
 from src.domain.agents.reviewer import ReviewResult, ReviewStatus
 from src.domain.skills import skill_manager
 from src.infrastructure.memory.agent_memory import agent_memory
 
 logger = logging.getLogger("Workflows")
+
+def _emit_audit_event(event: dict[str, Any]) -> None:
+    logger.info("audit_event=%s", json.dumps(event))
+
+
+def _send_notification(event: dict[str, Any]) -> None:
+    logger.info("notification_event=%s", json.dumps(event))
 
 
 class OmniWorkflow:
@@ -20,6 +29,12 @@ class OmniWorkflow:
         self.reviewer = ReviewerAgent()
         self.absorber = AbsorberAgent()
         self.max_iterations = 3
+        self.prompt_registry = PromptVersionRegistry(
+            minimum_improvement_threshold=0.05,
+            notifier=_send_notification,
+            audit_logger=_emit_audit_event,
+        )
+        self.prompt_registry.register_version("v1", base_score=0.50)
 
     def _extract_code(self, text: str) -> str:
         match = re.search(r"```python\n(.*?)\n```", text, re.DOTALL)
