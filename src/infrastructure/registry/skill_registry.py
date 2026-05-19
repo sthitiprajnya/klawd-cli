@@ -1,30 +1,46 @@
-import os
-import uuid
-import httpx
 import logging
+import os
 import urllib.parse
-import re
-import yaml
-from watchdog.observers import Observer
+import uuid
+from pathlib import Path
+
+import httpx
 from watchdog.events import FileSystemEventHandler
+from watchdog.observers import Observer
+
+from src.domain.arap.skill_parser import parse_skill_frontmatter, validate_skill_schema
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("SkillRegistry")
 
-def parse_skill_name(path):
-    return path.split("/")[-1].replace(".md", "")
 
-def parse_skill_version(path):
+def parse_skill_metadata(path: str) -> dict | None:
+    skill_path = Path(path)
+    if skill_path.name != "SKILL.md":
+        logger.warning("Skipping non-SKILL file", extra={"skill_path": path})
+        return None
+
     try:
-        with open(path, "r", encoding="utf-8") as f:
-            content = f.read()
-        match = re.match(r"^---\n(.*?)\n---\n", content, re.DOTALL)
-        if match:
-            frontmatter = yaml.safe_load(match.group(1))
-            return str(frontmatter.get("version", "1.0.0"))
-    except Exception:
-        pass
-    return "1.0.0"
+        content = skill_path.read_text(encoding="utf-8")
+        frontmatter = parse_skill_frontmatter(content)
+        is_valid, errors = validate_skill_schema(frontmatter)
+        if not is_valid:
+            logger.error(
+                "Invalid SKILL.md schema",
+                extra={"skill_path": path, "errors": errors},
+            )
+            return None
+
+        return {
+            "name": frontmatter["name"],
+            "version": frontmatter["version"],
+            "description": frontmatter["description"],
+            "path": path,
+        }
+    except Exception as exc:
+        logger.error("Failed to parse SKILL.md", extra={"skill_path": path, "error": str(exc)})
+        return None
+
 
 class HiClawClient:
     def nacos_register(self, service_name: str, metadata: dict):
@@ -32,7 +48,7 @@ class HiClawClient:
             "serviceName": service_name,
             "ip": "127.0.0.1",
             "port": 8000,
-            "ephemeral": "false"
+            "ephemeral": "false",
         })
         url = f"http://hiclaw-manager:18789/nacos/v1/ns/instance?{query_params}"
         try:
@@ -40,6 +56,7 @@ class HiClawClient:
             logger.info(f"Registered {service_name} with Nacos")
         except Exception as e:
             logger.error(f"Failed to register with Nacos: {e}")
+
 
 class MatrixClient:
     def __init__(self):
@@ -59,32 +76,36 @@ class MatrixClient:
         except Exception as e:
             logger.error(f"Failed to send Matrix notification: {e}")
 
+
 class SkillHotReloader(FileSystemEventHandler):
     def __init__(self):
         self.hiclaw = HiClawClient()
         self.matrix = MatrixClient()
 
     def on_created(self, event):
-        if event.src_path.endswith(".md"):
+        if event.src_path.endswith("SKILL.md"):
             self._reload_skill(event.src_path, "ADDED")
 
     def on_modified(self, event):
-        if event.src_path.endswith(".md"):
+        if event.src_path.endswith("SKILL.md"):
             self._reload_skill(event.src_path, "UPDATED")
 
     def _reload_skill(self, path: str, action: str):
-        skill_name = parse_skill_name(path)
-        version    = parse_skill_version(path)
+        metadata = parse_skill_metadata(path)
+        if not metadata:
+            logger.warning("Skill skipped due to invalid metadata", extra={"skill_path": path, "action": action})
+            return
 
         self.hiclaw.nacos_register(
-            service_name=f"skill.{skill_name}",
-            metadata={"version": version, "path": path, "action": action}
+            service_name=f"skill.{metadata['name']}",
+            metadata={"version": metadata["version"], "path": path, "action": action},
         )
 
         self.matrix.send_to_room(
             room="#skill-updates:daemon.local",
-            message=f"🧠 Skill {action}: `{skill_name}` v{version} — hot-reloaded"
+            message=f"🧠 Skill {action}: `{metadata['name']}` v{metadata['version']} — hot-reloaded",
         )
+
 
 if __name__ == "__main__":
     event_handler = SkillHotReloader()
@@ -93,6 +114,7 @@ if __name__ == "__main__":
     observer.start()
     try:
         import time
+
         while True:
             time.sleep(1)
     except KeyboardInterrupt:
