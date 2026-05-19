@@ -3,30 +3,37 @@ from litellm.integrations.custom_logger import CustomLogger
 
 logger = logging.getLogger("RoutingAuditor")
 
+
 class RoutingViolation(Exception):
     pass
 
+
 class RoutingAuditorHook(CustomLogger):
     def log_success_event(self, kwargs, response_obj, start_time, end_time):
-        """
-        Validates model output against capability contracts.
-        """
         model = kwargs.get("model", "unknown")
+        metadata = kwargs.get("metadata", {})
 
-        if model == "nim-coder":
-            try:
-                if hasattr(response_obj, 'choices') and len(response_obj.choices) > 0:
-                    content = response_obj.choices[0].message.content.lower()
-                else:
-                    content = ""
-            except Exception:
-                content = ""
+        latency_ms = max((end_time - start_time).total_seconds() * 1000, 0.0)
+        usage = getattr(response_obj, "usage", None)
+        prompt_tokens = getattr(usage, "prompt_tokens", None)
+        completion_tokens = getattr(usage, "completion_tokens", None)
 
-            forbidden_keywords = ["architecture document", "adr", "master plan", "strategic roadmap"]
-            for kw in forbidden_keywords:
-                if kw in content:
-                    logger.error(f"Routing Violation: {model} generated unauthorized content '{kw}'.")
-                    raise RoutingViolation(f"Model contract violation: nim-coder generated unauthorized content '{kw}'.")
+        logger.info(
+            "routing_decision",
+            extra={
+                "routing": {
+                    "task_type": metadata.get("task_type"),
+                    "job_id": metadata.get("job_id"),
+                    "primary": metadata.get("primary_model", model),
+                    "fallback": metadata.get("fallback_model"),
+                    "selected": model,
+                    "latency_ms": round(latency_ms, 2),
+                    "prompt_tokens": prompt_tokens,
+                    "completion_tokens": completion_tokens,
+                    "retry_count": metadata.get("retry_count", 0),
+                }
+            },
+        )
 
     def async_log_success_event(self, kwargs, response_obj, start_time, end_time):
         self.log_success_event(kwargs, response_obj, start_time, end_time)
