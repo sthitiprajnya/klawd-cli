@@ -25,11 +25,12 @@ def parse_skill_metadata(path: str) -> dict | None:
         frontmatter = parse_skill_frontmatter(content)
         is_valid, errors = validate_skill_schema(frontmatter)
         if not is_valid:
-            logger.error(
-                "Invalid SKILL.md schema",
-                extra={"skill_path": path, "errors": errors},
-            )
-            return None
+            error_payload = {
+                "file_path": path,
+                "validation_errors": errors,
+            }
+            logger.error("Invalid SKILL.md schema", extra=error_payload)
+            return {"error": error_payload}
 
         return {
             "name": frontmatter["name"],
@@ -38,8 +39,12 @@ def parse_skill_metadata(path: str) -> dict | None:
             "path": path,
         }
     except Exception as exc:
-        logger.error("Failed to parse SKILL.md", extra={"skill_path": path, "error": str(exc)})
-        return None
+        error_payload = {
+            "file_path": path,
+            "validation_errors": [str(exc)],
+        }
+        logger.error("Failed to parse SKILL.md", extra=error_payload)
+        return {"error": error_payload}
 
 
 class HiClawClient:
@@ -92,8 +97,8 @@ class SkillHotReloader(FileSystemEventHandler):
 
     def _reload_skill(self, path: str, action: str):
         metadata = parse_skill_metadata(path)
-        if not metadata:
-            logger.warning("Skill skipped due to invalid metadata", extra={"skill_path": path, "action": action})
+        if not metadata or metadata.get("error"):
+            logger.warning("Skill skipped due to invalid metadata", extra={"skill_path": path, "action": action, "metadata": metadata})
             return
 
         self.hiclaw.nacos_register(
