@@ -5,12 +5,21 @@ import re
 import subprocess
 from typing import Any, Tuple
 
+from src.application.prompt_registry import PromptVersionRegistry
+
 from src.domain.agents import PlannerAgent, EngineerAgent, ReviewerAgent, AbsorberAgent
 from src.domain.agents.reviewer import ReviewResult, ReviewStatus
 from src.domain.skills import skill_manager
 from src.infrastructure.memory.agent_memory import agent_memory
 
 logger = logging.getLogger("Workflows")
+
+def _emit_audit_event(event: dict[str, Any]) -> None:
+    logger.info("audit_event=%s", json.dumps(event))
+
+
+def _send_notification(event: dict[str, Any]) -> None:
+    logger.info("notification_event=%s", json.dumps(event))
 
 
 class OmniWorkflow:
@@ -20,6 +29,12 @@ class OmniWorkflow:
         self.reviewer = ReviewerAgent()
         self.absorber = AbsorberAgent()
         self.max_iterations = 3
+        self.prompt_registry = PromptVersionRegistry(
+            minimum_improvement_threshold=0.05,
+            notifier=_send_notification,
+            audit_logger=_emit_audit_event,
+        )
+        self.prompt_registry.register_version("v1", base_score=0.50)
 
     def _extract_code(self, text: str) -> str:
         match = re.search(r"```python\n(.*?)\n```", text, re.DOTALL)
@@ -60,6 +75,24 @@ class OmniWorkflow:
             agent_memory.store_outcome("Absorption Protocol", clean_code, f"Absorbed {skill_name}")
             return True
         return False
+
+    def promote_prompt_version(
+        self,
+        *,
+        candidate_version: str,
+        recent_job_outcomes: list[dict[str, Any]],
+        reviewer_artifacts: list[dict[str, Any]],
+        held_out_score: float,
+    ) -> bool:
+        return self.prompt_registry.try_promote(
+            candidate_version=candidate_version,
+            recent_job_outcomes=recent_job_outcomes,
+            reviewer_artifacts=reviewer_artifacts,
+            held_out_score=held_out_score,
+        )
+
+    def rollback_prompt_version(self, *, to_version: str, reason: str) -> None:
+        self.prompt_registry.rollback(to_version=to_version, reason=reason)
 
     def process_task(self, task: str) -> Tuple[str, str, str]:
         if "github.com" in task.lower() or "absorb" in task.lower():
