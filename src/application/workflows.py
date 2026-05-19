@@ -10,6 +10,8 @@ from src.domain.agents import PlannerAgent, EngineerAgent, ReviewerAgent, Absorb
 from src.domain.agents.reviewer import ReviewResult, ReviewStatus
 from src.domain.skills import skill_manager
 from src.infrastructure.memory.agent_memory import agent_memory
+from src.infrastructure.security.hooks import HookPoint
+from src.infrastructure.security.hooks_impl import prism_check
 
 logger = logging.getLogger("Workflows")
 
@@ -75,6 +77,10 @@ class OmniWorkflow:
         clean_code = self._extract_code(raw_code)
 
         skill_name = f"skill_{int(time.time())}"
+        outbound_verdict = prism_check(HookPoint.H6_LLM_OUTPUT_RAW.value, raw_output=clean_code)
+        if not outbound_verdict.allow:
+            return False
+
         if skill_manager.load_skill(skill_name, clean_code):
             agent_memory.store_outcome("Absorption Protocol", clean_code, f"Absorbed {skill_name}")
             return True
@@ -109,6 +115,9 @@ class OmniWorkflow:
         return self._snapshots.get(task)
 
     def process_task(self, task: str) -> Tuple[str, str, str]:
+        inbound_verdict = prism_check(HookPoint.H1_PROMPT_RECEIVED.value, prompt=task)
+        if not inbound_verdict.allow:
+            return "Blocked", "", inbound_verdict.reason
         if "github.com" in task.lower() or "absorb" in task.lower():
             success = self.process_absorption(task)
             return {
@@ -155,6 +164,16 @@ class OmniWorkflow:
                 snapshot.static_checks = review.static_checks
                 snapshot.metadata = review.metadata
                 final_review = review
+                break
+
+            code = self.engineer.iterate_code(code, review.feedback)
+            final_review = review
+
+        output_verdict = prism_check(HookPoint.H6_LLM_OUTPUT_RAW.value, raw_output=code)
+        if not output_verdict.allow:
+            return plan, "", output_verdict.reason
+
+        reflection = self.reviewer.reflect(code, final_review.feedback)
                 next_state = "finalize" if review.status in {ReviewStatus.PASS, ReviewStatus.PASS_WITH_NOTES} else "iterate"
                 self._emit_transition(task, "review", next_state, snapshot)
                 snapshot.state = next_state
