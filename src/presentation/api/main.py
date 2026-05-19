@@ -36,6 +36,16 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
+
+def _workflow_transition_sink(event: dict):
+    try:
+        asyncio.run(manager.broadcast(event))
+    except Exception:
+        pass
+
+
+workflow.register_event_sink(_workflow_transition_sink)
+
 # Setup static files for frontend UI
 import os
 os.makedirs("src/presentation/static/css", exist_ok=True)

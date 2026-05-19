@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock
 
-from src.application.workflows import OmniWorkflow
+from src.application.workflows import OmniWorkflow, WorkflowSnapshot
 from src.domain.agents.reviewer import ReviewResult, ReviewStatus
 
 
@@ -15,6 +15,8 @@ def test_workflow_pass_first_try():
     wf.reviewer.review_code = MagicMock(return_value=_mk_review(ReviewStatus.PASS, "PASS\nLooks good"))
     wf.reviewer.reflect = MagicMock(return_value="reflection")
     wf._run_static_review_hooks = MagicMock(return_value=[])
+    events = []
+    wf.register_event_sink(events.append)
 
     plan, code, review = wf.process_task("do thing")
 
@@ -22,6 +24,7 @@ def test_workflow_pass_first_try():
     assert code == "print(1)"
     assert "PASS" in review
     wf.engineer.iterate_code.assert_not_called()
+    assert any(event["to_state"] == "finalize" for event in events)
 
 
 def test_workflow_retry_then_pass_with_notes():
@@ -57,3 +60,25 @@ def test_workflow_fail_all_retries():
 
     assert "FAIL_WITH_FEEDBACK" in review
     assert wf.engineer.iterate_code.call_count == 2
+
+
+def test_workflow_resume_from_snapshot():
+    wf = OmniWorkflow()
+    wf.max_iterations = 3
+    wf._snapshots["resumable task"] = WorkflowSnapshot(
+        state="review",
+        task="resumable task",
+        plan="existing plan",
+        code="candidate code",
+        retries=1,
+        max_retries=3,
+    )
+    wf.reviewer.review_code = MagicMock(return_value=_mk_review(ReviewStatus.PASS, "PASS\ndone"))
+    wf.reviewer.reflect = MagicMock(return_value="reflection")
+    wf._run_static_review_hooks = MagicMock(return_value=[])
+
+    plan, code, review = wf.process_task("resumable task")
+
+    assert plan == "existing plan"
+    assert code == "candidate code"
+    assert "PASS" in review
