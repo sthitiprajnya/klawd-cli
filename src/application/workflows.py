@@ -12,6 +12,7 @@ from src.domain.agents import PlannerAgent, EngineerAgent, ReviewerAgent, Absorb
 from src.domain.agents.reviewer import ReviewResult, ReviewStatus
 from src.domain.skills import skill_manager
 from src.infrastructure.memory.agent_memory import agent_memory
+from src.settings import settings
 from src.infrastructure.security.execution_adapter import PolicyRejectionError
 from src.infrastructure.security.hooks import HookPoint
 from src.infrastructure.security.hooks_impl import prism_check
@@ -85,7 +86,12 @@ class OmniWorkflow:
             return False
 
         if skill_manager.load_skill(skill_name, clean_code):
-            agent_memory.store_outcome("Absorption Protocol", clean_code, f"Absorbed {skill_name}")
+            agent_memory.store_outcome(
+                "Absorption Protocol",
+                clean_code,
+                f"Absorbed {skill_name}",
+                metadata={"domain": "arap", "layer": "absorption", "job_id": "unknown", "skill_name": skill_name},
+            )
             return True
         return False
 
@@ -136,9 +142,10 @@ class OmniWorkflow:
                 "latency_ms": int((time.time() - started_at) * 1000),
             }
 
-        past_lessons = agent_memory.retrieve_lessons(context=task)
+        past_lessons = agent_memory.retrieve_lessons(context=task, top_k=settings.mempalace_semantic_top_k)
+        bounded_lessons = past_lessons[:settings.mempalace_semantic_max_chars]
         skills = skill_manager.list_skills()
-        context = f"Prior Lessons:\n{past_lessons}\nAvailable Skills: {skills}"
+        context = f"Prior Lessons (top-k semantic):\n{bounded_lessons}\nAvailable Skills: {skills}"
 
         try:
             plan = self.planner.create_plan(f"Task: {task}\nContext: {context}")
@@ -232,10 +239,16 @@ class OmniWorkflow:
             "reflection": reflection,
             "snapshot": asdict(snapshot),
         }
+        job_id_match = re.search(r"\[job_id=([^;\]]+)", task)
+        job_id = job_id_match.group(1) if job_id_match else "unknown"
         agent_memory.store_outcome(
             task,
             code,
             json.dumps(review_artifact),
+            metadata={"domain": "arap", "layer": "workflow", "job_id": job_id, "skill_name": "planner"},
+        )
+
+        return plan, code, final_review.feedback
             job_id=f"job_{int(time.time() * 1000)}",
             agent="omni_workflow",
             status=final_review.status.value,

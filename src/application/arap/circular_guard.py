@@ -25,15 +25,18 @@ class CircularDependencyGuard:
 
     def _load_from_mempalace(self):
         try:
-            response = httpx.get(f"{self.base_url}/absorbed-knowledge/meta/dependency-graph")
-            if response.status_code == 200:
-                entries = response.json().get("entries", [])
-                for entry in entries:
-                    content = entry.get("content", {})
-                    if "parent" in content and "child" in content:
-                        self.graph.add_edge(content["parent"], content["child"])
+            response = httpx.get(f"{self.base_url}/absorbed-knowledge/meta/dependency-graph", timeout=2.0)
+            response.raise_for_status()
+            entries = response.json().get("entries", [])
+            for entry in entries:
+                content = entry.get("content", {})
+                if "parent" in content and "child" in content:
+                    self.graph.add_edge(content["parent"], content["child"])
+            logger.info("Loaded %d dependency edges from MemPalace", self.graph.number_of_edges())
+        except httpx.HTTPStatusError as e:
+            logger.error("MemPalace graph fetch failed with status %s", e.response.status_code)
         except Exception as e:
-            logger.warning(f"Failed to load dependency graph from MemPalace: {e}")
+            logger.exception("Failed to load dependency graph from MemPalace: %s", e)
 
     def check_and_register(self, parent_url: str, child_url: str) -> None:
         norm_parent = normalize_url(parent_url)
@@ -45,9 +48,13 @@ class CircularDependencyGuard:
             raise AbsorptionCycleError(f"Absorbing {norm_child} from {norm_parent} creates a cycle.")
 
         try:
-            httpx.post(f"{self.base_url}/absorbed-knowledge/meta/dependency-graph", json={
+            response = httpx.post(f"{self.base_url}/absorbed-knowledge/meta/dependency-graph", json={
                 "data": {"parent": norm_parent, "child": norm_child},
                 "aaak_event": "dependency-registered"
-            })
+            }, timeout=2.0)
+            response.raise_for_status()
+            logger.info("Stored dependency edge in MemPalace: %s -> %s", norm_parent, norm_child)
+        except httpx.HTTPStatusError as e:
+            logger.error("MemPalace graph store failed with status %s", e.response.status_code)
         except Exception as e:
-            logger.error(f"Failed to store dependency graph in MemPalace: {e}")
+            logger.exception("Failed to store dependency graph in MemPalace: %s", e)
