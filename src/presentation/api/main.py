@@ -13,6 +13,7 @@ from src.infrastructure.database import get_db, SessionLocal, JobEntry
 from src.application.workflows import workflow
 from src.domain.skills import skill_manager
 from src.infrastructure.memory.agent_memory import agent_memory
+from src.infrastructure.security.execution_adapter import execution_adapter, PolicyRejectionError
 
 logger = logging.getLogger("EnterpriseAPI")
 
@@ -35,6 +36,11 @@ class ConnectionManager:
             await connection.send_json(message)
 
 manager = ConnectionManager()
+
+@app.on_event("startup")
+async def startup_policy_validation():
+    execution_adapter.startup_validate()
+
 
 # Setup static files for frontend UI
 import os
@@ -132,7 +138,8 @@ async def health(db: Session = Depends(get_db)):
         agent_memory.retrieve_lessons("health-check")
     except Exception:
         memory_status = "degraded"
-    return {"status": "ok", "services": {"api": "up", "database": "up", "memory": memory_status}}
+    nemo = execution_adapter.health()
+    return {"status": "ok", "services": {"api": "up", "database": "up", "memory": memory_status, "nemoclaw": nemo.status}, "nemoclaw_reason": nemo.reason}
 
 
 @app.get("/api/v1/memory/search")

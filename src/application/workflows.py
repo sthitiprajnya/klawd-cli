@@ -9,6 +9,7 @@ from src.domain.agents import PlannerAgent, EngineerAgent, ReviewerAgent, Absorb
 from src.domain.agents.reviewer import ReviewResult, ReviewStatus
 from src.domain.skills import skill_manager
 from src.infrastructure.memory.agent_memory import agent_memory
+from src.infrastructure.security.execution_adapter import PolicyRejectionError
 
 logger = logging.getLogger("Workflows")
 
@@ -72,12 +73,22 @@ class OmniWorkflow:
         skills = skill_manager.list_skills()
         context = f"Prior Lessons:\n{past_lessons}\nAvailable Skills: {skills}"
 
-        plan = self.planner.create_plan(f"Task: {task}\nContext: {context}")
-        code = self.engineer.write_code(plan)
+        try:
+            plan = self.planner.create_plan(f"Task: {task}\nContext: {context}")
+            code = self.engineer.write_code(plan)
+        except PolicyRejectionError as e:
+            payload = e.payload
+            structured_error = f"WORKFLOW_POLICY_REJECTION|source={payload['source']}|reason={payload['reason']}|remediation={payload['remediation']}"
+            return "PolicyBlocked", "", structured_error
 
         final_review = ReviewResult(status=ReviewStatus.FAIL_WITH_FEEDBACK, feedback="Initial pending review")
         for _ in range(self.max_iterations):
-            review = self.reviewer.review_code(code)
+            try:
+                review = self.reviewer.review_code(code)
+            except PolicyRejectionError as e:
+                payload = e.payload
+                structured_error = f"REVIEWER_POLICY_REJECTION|source={payload['source']}|reason={payload['reason']}|remediation={payload['remediation']}"
+                return plan, code, structured_error
             review.static_checks = self._run_static_review_hooks(code)
             review.metadata.update(
                 {
