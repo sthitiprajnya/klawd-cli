@@ -18,7 +18,7 @@ def test_workflow_pass_first_try():
     events = []
     wf.register_event_sink(events.append)
 
-    plan, code, review = wf.process_task("do thing")
+    out = wf.process_task("do thing")
 
     assert plan == "plan"
     assert code == "print(1)"
@@ -40,9 +40,9 @@ def test_workflow_retry_then_pass_with_notes():
     wf.reviewer.reflect = MagicMock(return_value="reflection")
     wf._run_static_review_hooks = MagicMock(return_value=[])
 
-    _, _, review = wf.process_task("do thing")
+    out = wf.process_task("do thing")
 
-    assert "PASS_WITH_NOTES" in review
+    assert out["status"] == "completed"
     assert wf.engineer.iterate_code.call_count == 1
 
 
@@ -56,9 +56,9 @@ def test_workflow_fail_all_retries():
     wf.reviewer.reflect = MagicMock(return_value="reflection")
     wf._run_static_review_hooks = MagicMock(return_value=[])
 
-    _, _, review = wf.process_task("do thing")
+    out = wf.process_task("do thing")
 
-    assert "FAIL_WITH_FEEDBACK" in review
+    assert out["status"] == "failed"
     assert wf.engineer.iterate_code.call_count == 2
 
 

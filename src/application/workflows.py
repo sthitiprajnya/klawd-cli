@@ -13,6 +13,13 @@ from src.infrastructure.memory.agent_memory import agent_memory
 
 logger = logging.getLogger("Workflows")
 
+def _emit_audit_event(event: dict[str, Any]) -> None:
+    logger.info("audit_event=%s", json.dumps(event))
+
+
+def _send_notification(event: dict[str, Any]) -> None:
+    logger.info("notification_event=%s", json.dumps(event))
+
 
 @dataclass
 class WorkflowSnapshot:
@@ -44,11 +51,6 @@ class OmniWorkflow:
         return match.group(1) if match else text
 
     def _run_static_review_hooks(self, code: str) -> list[dict[str, Any]]:
-        """Deterministic static review pipeline hook.
-
-        Contract (parseable): list[dict] with keys:
-        tool, status, severity, message, rule_id, line.
-        """
         cmd = ["semgrep", "--config=p/security-audit", "--json", "--quiet", "-"]
         try:
             result = subprocess.run(cmd, input=code.encode("utf-8"), capture_output=True, timeout=60)
@@ -69,7 +71,6 @@ class OmniWorkflow:
             return [{"tool": "semgrep", "status": "error", "severity": "ERROR", "message": str(e), "rule_id": "hook_exception", "line": 0}]
 
     def process_absorption(self, task: str) -> bool:
-        logger.info("Starting Absorption Protocol")
         raw_code = self.absorber.absorb_repo(task)
         clean_code = self._extract_code(raw_code)
 
@@ -110,9 +111,18 @@ class OmniWorkflow:
     def process_task(self, task: str) -> Tuple[str, str, str]:
         if "github.com" in task.lower() or "absorb" in task.lower():
             success = self.process_absorption(task)
-            return "Absorption Task", "Code Saved", "Success" if success else "Failed"
-
-        logger.info(f"Starting standard workflow: {task}")
+            return {
+                "plan": "Absorption Task",
+                "code": "Code Saved",
+                "review_feedback": "Success" if success else "Failed",
+                "status": "completed" if success else "failed",
+                "review_artifact": {},
+                "skills_absorbed": ["dynamic" if success else ""],
+                "model_used": "n/a",
+                "tokens_used": 0,
+                "threat_score": 0,
+                "latency_ms": int((time.time() - started_at) * 1000),
+            }
 
         past_lessons = agent_memory.retrieve_lessons(context=task)
         skills = skill_manager.list_skills()
