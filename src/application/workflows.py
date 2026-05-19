@@ -3,6 +3,7 @@ import time
 import logging
 import re
 import subprocess
+from datetime import datetime, timezone
 from typing import Any, Tuple
 
 from src.domain.agents import PlannerAgent, EngineerAgent, ReviewerAgent, AbsorberAgent
@@ -95,6 +96,7 @@ class OmniWorkflow:
 
         reflection = self.reviewer.reflect(code, final_review.feedback)
         failure_class = "LOGIC" if final_review.status == ReviewStatus.FAIL_WITH_FEEDBACK else "NONE"
+        now = datetime.now(timezone.utc).isoformat()
         review_artifact = {
             "status": final_review.status.value,
             "feedback": final_review.feedback,
@@ -103,7 +105,15 @@ class OmniWorkflow:
             "failure_class": failure_class,
             "reflection": reflection,
         }
-        agent_memory.store_outcome(task, code, json.dumps(review_artifact))
+        agent_memory.store_outcome(
+            task,
+            code,
+            json.dumps(review_artifact),
+            job_id=f"job_{int(time.time() * 1000)}",
+            agent="omni_workflow",
+            status=final_review.status.value,
+            failure_class=failure_class,
+        )
 
         return plan, code, final_review.feedback
 
