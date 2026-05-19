@@ -38,7 +38,19 @@ class ConnectionManager:
             await connection.send_json(message)
 
 
-manager = ConnectionManager()
+
+def _workflow_transition_sink(event: dict):
+    try:
+        asyncio.run(manager.broadcast(event))
+    except Exception:
+        pass
+
+
+workflow.register_event_sink(_workflow_transition_sink)
+
+# Setup static files for frontend UI
+import os
+os.makedirs("src/presentation/static/css", exist_ok=True)
 app.mount("/static", StaticFiles(directory="src/presentation/static"), name="static")
 
 

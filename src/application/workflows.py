@@ -3,9 +3,8 @@ import time
 import logging
 import re
 import subprocess
-from typing import Any
-
-from src.application.prompt_registry import PromptVersionRegistry
+from dataclasses import dataclass, asdict, field
+from typing import Any, Callable, Tuple
 
 from src.domain.agents import PlannerAgent, EngineerAgent, ReviewerAgent, AbsorberAgent
 from src.domain.agents.reviewer import ReviewResult, ReviewStatus
@@ -22,6 +21,21 @@ def _send_notification(event: dict[str, Any]) -> None:
     logger.info("notification_event=%s", json.dumps(event))
 
 
+@dataclass
+class WorkflowSnapshot:
+    state: str = "plan"
+    task: str = ""
+    plan: str = ""
+    code: str = ""
+    review_feedback: str = ""
+    review_status: str = ReviewStatus.FAIL_WITH_FEEDBACK.value
+    retries: int = 0
+    max_retries: int = 0
+    completed: bool = False
+    static_checks: list[dict[str, Any]] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
 class OmniWorkflow:
     def __init__(self):
         self.planner = PlannerAgent()
@@ -29,12 +43,8 @@ class OmniWorkflow:
         self.reviewer = ReviewerAgent()
         self.absorber = AbsorberAgent()
         self.max_iterations = 3
-        self.prompt_registry = PromptVersionRegistry(
-            minimum_improvement_threshold=0.05,
-            notifier=_send_notification,
-            audit_logger=_emit_audit_event,
-        )
-        self.prompt_registry.register_version("v1", base_score=0.50)
+        self._snapshots: dict[str, WorkflowSnapshot] = {}
+        self._event_sinks: list[Callable[[dict[str, Any]], None]] = [self._telemetry_sink]
 
     def _extract_code(self, text: str) -> str:
         match = re.search(r"```python\n(.*?)\n```", text, re.DOTALL)
@@ -70,9 +80,35 @@ class OmniWorkflow:
             return True
         return False
 
-    def process_task(self, task: str) -> dict[str, Any]:
-        started_at = time.time()
+    def register_event_sink(self, sink: Callable[[dict[str, Any]], None]) -> None:
+        self._event_sinks.append(sink)
 
+    def _telemetry_sink(self, event: dict[str, Any]) -> None:
+        logger.info("workflow_transition", extra={"workflow_event": event})
+
+    def _emit_transition(self, task: str, from_state: str, to_state: str, snapshot: WorkflowSnapshot) -> None:
+        event = {
+            "type": "workflow_transition",
+            "task": task,
+            "from_state": from_state,
+            "to_state": to_state,
+            "retries": snapshot.retries,
+            "max_retries": snapshot.max_retries,
+            "review_status": snapshot.review_status,
+        }
+        for sink in self._event_sinks:
+            try:
+                sink(event)
+            except Exception as exc:
+                logger.warning("event sink failed: %s", exc)
+
+    def _persist_snapshot(self, task: str, snapshot: WorkflowSnapshot) -> None:
+        self._snapshots[task] = snapshot
+
+    def _load_snapshot(self, task: str) -> WorkflowSnapshot | None:
+        return self._snapshots.get(task)
+
+    def process_task(self, task: str) -> Tuple[str, str, str]:
         if "github.com" in task.lower() or "absorb" in task.lower():
             success = self.process_absorption(task)
             return {
@@ -92,44 +128,67 @@ class OmniWorkflow:
         skills = skill_manager.list_skills()
         context = f"Prior Lessons:\n{past_lessons}\nAvailable Skills: {skills}"
 
-        plan = self.planner.create_plan(f"Task: {task}\nContext: {context}")
-        code = self.engineer.write_code(plan)
-
+        snapshot = self._load_snapshot(task) or WorkflowSnapshot(task=task, max_retries=self.max_iterations)
         final_review = ReviewResult(status=ReviewStatus.FAIL_WITH_FEEDBACK, feedback="Initial pending review")
-        for _ in range(self.max_iterations):
-            review = self.reviewer.review_code(code)
-            review.static_checks = self._run_static_review_hooks(code)
-            review.metadata.update({"prism_validation_status": "unknown", "nemoclaw_validation_status": "unknown"})
-            final_review = review
-            if review.status in {ReviewStatus.PASS, ReviewStatus.PASS_WITH_NOTES}:
-                break
-            code = self.engineer.iterate_code(code, review.feedback)
 
-        reflection = self.reviewer.reflect(code, final_review.feedback)
+        while not snapshot.completed:
+            state = snapshot.state
+            if state == "plan":
+                snapshot.plan = self.planner.create_plan(f"Task: {task}\nContext: {context}")
+                self._emit_transition(task, "plan", "execute", snapshot)
+                snapshot.state = "execute"
+                self._persist_snapshot(task, snapshot)
+            elif state == "execute":
+                if snapshot.code and snapshot.retries > 0:
+                    self._emit_transition(task, "execute", "review", snapshot)
+                else:
+                    snapshot.code = self.engineer.write_code(snapshot.plan)
+                    self._emit_transition(task, "execute", "review", snapshot)
+                snapshot.state = "review"
+                self._persist_snapshot(task, snapshot)
+            elif state == "review":
+                review = self.reviewer.review_code(snapshot.code)
+                review.static_checks = self._run_static_review_hooks(snapshot.code)
+                review.metadata.update({"prism_validation_status": "unknown", "nemoclaw_validation_status": "unknown"})
+                snapshot.review_feedback = review.feedback
+                snapshot.review_status = review.status.value
+                snapshot.static_checks = review.static_checks
+                snapshot.metadata = review.metadata
+                final_review = review
+                next_state = "finalize" if review.status in {ReviewStatus.PASS, ReviewStatus.PASS_WITH_NOTES} else "iterate"
+                self._emit_transition(task, "review", next_state, snapshot)
+                snapshot.state = next_state
+                self._persist_snapshot(task, snapshot)
+            elif state == "iterate":
+                if snapshot.retries >= snapshot.max_retries:
+                    self._emit_transition(task, "iterate", "finalize", snapshot)
+                    snapshot.state = "finalize"
+                else:
+                    snapshot.code = self.engineer.iterate_code(snapshot.code, snapshot.review_feedback)
+                    snapshot.retries += 1
+                    self._emit_transition(task, "iterate", "execute", snapshot)
+                    snapshot.state = "execute"
+                self._persist_snapshot(task, snapshot)
+            elif state == "finalize":
+                snapshot.completed = True
+                self._persist_snapshot(task, snapshot)
+            else:
+                raise ValueError(f"Unknown workflow state: {state}")
+
+        reflection = self.reviewer.reflect(snapshot.code, final_review.feedback)
         failure_class = "LOGIC" if final_review.status == ReviewStatus.FAIL_WITH_FEEDBACK else "NONE"
         review_artifact = {
             "status": final_review.status.value,
             "feedback": final_review.feedback,
-            "static_checks": final_review.static_checks,
-            "metadata": final_review.metadata,
+            "static_checks": snapshot.static_checks,
+            "metadata": snapshot.metadata,
             "failure_class": failure_class,
             "reflection": reflection,
+            "snapshot": asdict(snapshot),
         }
-        agent_memory.store_outcome(task, code, json.dumps(review_artifact))
+        agent_memory.store_outcome(task, snapshot.code, json.dumps(review_artifact))
 
-        wf_status = "failed" if final_review.status == ReviewStatus.FAIL_WITH_FEEDBACK else "completed"
-        return {
-            "plan": plan,
-            "code": code,
-            "review_feedback": final_review.feedback,
-            "status": wf_status,
-            "review_artifact": review_artifact,
-            "skills_absorbed": skills,
-            "model_used": "router_default",
-            "tokens_used": len(code.split()) + len(plan.split()),
-            "threat_score": 0,
-            "latency_ms": int((time.time() - started_at) * 1000),
-        }
+        return snapshot.plan, snapshot.code, final_review.feedback
 
 
 workflow = OmniWorkflow()
