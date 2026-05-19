@@ -23,6 +23,44 @@ license: MIT
 """
 
 
+def _missing_fields_skill_md() -> str:
+    return """---
+name: bad-skill
+version: 1.0.0
+---
+# Bad Skill
+"""
+
+
+def _wrong_type_skill_md() -> str:
+    return """---
+name: test-skill
+description: A test skill
+triggers: test
+dependencies:
+  - requests
+version: 1.0.0
+author: test-author
+license: MIT
+---
+# Test Skill
+"""
+
+
+def _empty_list_skill_md() -> str:
+    return """---
+name: test-skill
+description: A test skill
+triggers: []
+dependencies: []
+version: 1.0.0
+author: test-author
+license: MIT
+---
+# Test Skill
+"""
+
+
 def test_parse_valid_skill_schema():
     frontmatter = parse_skill_frontmatter(_valid_skill_md())
     is_valid, errors = validate_skill_schema(frontmatter)
@@ -32,18 +70,29 @@ def test_parse_valid_skill_schema():
 
 
 def test_reject_missing_required_fields():
-    invalid = """---
-name: bad-skill
-version: 1.0.0
----
-# Bad Skill
-"""
-    frontmatter = parse_skill_frontmatter(invalid)
+    frontmatter = parse_skill_frontmatter(_missing_fields_skill_md())
     is_valid, errors = validate_skill_schema(frontmatter)
 
     assert is_valid is False
     assert "missing required field 'description'" in errors
     assert "missing required field 'triggers'" in errors
+
+
+def test_reject_wrong_type_fields():
+    frontmatter = parse_skill_frontmatter(_wrong_type_skill_md())
+    is_valid, errors = validate_skill_schema(frontmatter)
+
+    assert is_valid is False
+    assert "field 'triggers' must be of type list, got str" in errors
+
+
+def test_reject_empty_list_fields():
+    frontmatter = parse_skill_frontmatter(_empty_list_skill_md())
+    is_valid, errors = validate_skill_schema(frontmatter)
+
+    assert is_valid is False
+    assert "field 'triggers' must not be empty" in errors
+    assert "field 'dependencies' must not be empty" in errors
 
 
 def test_registry_and_manager_skip_invalid_skill_files(tmp_path: Path):
@@ -55,13 +104,18 @@ def test_registry_and_manager_skip_invalid_skill_files(tmp_path: Path):
     invalid_dir = tmp_path / "invalid"
     invalid_dir.mkdir()
     invalid_skill = invalid_dir / "SKILL.md"
-    invalid_skill.write_text("---\nname: broken\n---\n", encoding="utf-8")
+    invalid_skill.write_text(_missing_fields_skill_md(), encoding="utf-8")
 
     non_skill = tmp_path / "README.md"
     non_skill.write_text("not a skill", encoding="utf-8")
 
     assert parse_skill_metadata(str(valid_skill)) is not None
-    assert parse_skill_metadata(str(invalid_skill)) is None
+
+    invalid_metadata = parse_skill_metadata(str(invalid_skill))
+    assert invalid_metadata is not None
+    assert invalid_metadata.get("error", {}).get("file_path") == str(invalid_skill)
+    assert "missing required field 'description'" in invalid_metadata.get("error", {}).get("validation_errors", [])
+
     assert parse_skill_metadata(str(non_skill)) is None
 
     manager = SkillManager(skills_dir=str(tmp_path))
@@ -153,3 +207,4 @@ def test_hiclaw_register_retry_failure_and_matrix_failure_notice(tmp_path: Path,
 
     assert len(messages) == 1
     assert "FAILED" in messages[0]
+    assert "bad-skill" not in listed

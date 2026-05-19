@@ -13,7 +13,7 @@ class SkillManager:
         self.loaded_skills: dict[str, dict] = {}
         os.makedirs(self.skills_dir, exist_ok=True)
 
-    def list_skills(self):
+    def list_skills(self) -> dict[str, dict]:
         return self.loaded_skills
 
     def discover_skill_files(self) -> list[Path]:
@@ -27,7 +27,7 @@ class SkillManager:
                 discovered[metadata["name"]] = metadata
         self.loaded_skills = discovered
 
-    def load_skill(self, skill_path: str | Path):
+    def load_skill(self, skill_path: str | Path) -> dict | None:
         skill_path = Path(skill_path)
         try:
             content = skill_path.read_text(encoding="utf-8")
