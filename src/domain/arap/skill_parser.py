@@ -14,12 +14,13 @@ REQUIRED_SKILL_FIELDS = {
 }
 
 
-def parse_skill_frontmatter(skill_md: str) -> dict:
+def parse_skill_frontmatter(skill_md: str) -> dict[str, Any]:
     match = re.match(r"^---\n(.*?)\n---\n", skill_md, re.DOTALL)
     if not match:
         return {}
     try:
-        return yaml.safe_load(match.group(1)) or {}
+        parsed = yaml.safe_load(match.group(1)) or {}
+        return parsed if isinstance(parsed, dict) else {}
     except yaml.YAMLError:
         return {}
 

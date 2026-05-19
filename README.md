@@ -113,3 +113,19 @@ Operational guidance:
 1. If `openhuman_available=false` and `openhuman_error=timeout`, increase `OPENHUMAN_TIMEOUT_SECONDS` or investigate network/service latency.
 2. If `openhuman_error=malformed_jsonrpc_payload`, verify OpenHuman response schema compatibility.
 3. If repeated failures persist, jobs will continue in stateless mode; treat this as degraded quality context, not platform outage.
+
+## Skill Schema Validation
+
+Skill discovery only loads files named `SKILL.md` and validates frontmatter before registration.
+
+Required frontmatter fields:
+
+- `name`
+- `description`
+- `triggers`
+- `dependencies`
+- `version`
+- `author`
+- `license`
+
+For full schema details and examples, see `docs/skill_schema.md`.
