@@ -1,5 +1,6 @@
 import logging
 import os
+import time
 import urllib.parse
 import uuid
 from pathlib import Path
@@ -48,7 +49,7 @@ def parse_skill_metadata(path: str) -> dict | None:
 
 
 class HiClawClient:
-    def nacos_register(self, service_name: str, metadata: dict):
+    def nacos_register(self, service_name: str, metadata: dict, retries: int = 3, retry_delay: float = 0.5) -> bool:
         query_params = urllib.parse.urlencode({
             "serviceName": service_name,
             "ip": "127.0.0.1",
@@ -56,11 +57,25 @@ class HiClawClient:
             "ephemeral": "false",
         })
         url = f"http://hiclaw-manager:18789/nacos/v1/ns/instance?{query_params}"
-        try:
-            httpx.post(url, json=metadata)
-            logger.info(f"Registered {service_name} with Nacos")
-        except Exception as e:
-            logger.error(f"Failed to register with Nacos: {e}")
+        for attempt in range(1, retries + 1):
+            try:
+                response = httpx.post(url, json=metadata)
+                response.raise_for_status()
+                logger.info(f"Registered {service_name} with Nacos")
+                return True
+            except Exception as e:
+                logger.warning(
+                    "Nacos registration attempt failed",
+                    extra={"service_name": service_name, "attempt": attempt, "retries": retries, "error": str(e)},
+                )
+                if attempt < retries:
+                    time.sleep(retry_delay)
+
+        logger.error(
+            "Nacos dead-letter: exhausted retries",
+            extra={"service_name": service_name, "metadata": metadata, "retries": retries},
+        )
+        return False
 
 
 class MatrixClient:
@@ -86,13 +101,18 @@ class SkillHotReloader(FileSystemEventHandler):
     def __init__(self):
         self.hiclaw = HiClawClient()
         self.matrix = MatrixClient()
+        self._skill_versions: dict[str, str] = {}
+
+    @staticmethod
+    def _is_skill_event(event) -> bool:
+        return (not getattr(event, "is_directory", False)) and Path(event.src_path).name == "SKILL.md"
 
     def on_created(self, event):
-        if event.src_path.endswith("SKILL.md"):
+        if self._is_skill_event(event):
             self._reload_skill(event.src_path, "ADDED")
 
     def on_modified(self, event):
-        if event.src_path.endswith("SKILL.md"):
+        if self._is_skill_event(event):
             self._reload_skill(event.src_path, "UPDATED")
 
     def _reload_skill(self, path: str, action: str):
@@ -101,14 +121,36 @@ class SkillHotReloader(FileSystemEventHandler):
             logger.warning("Skill skipped due to invalid metadata", extra={"skill_path": path, "action": action, "metadata": metadata})
             return
 
-        self.hiclaw.nacos_register(
-            service_name=f"skill.{metadata['name']}",
-            metadata={"version": metadata["version"], "path": path, "action": action},
+        skill_name = metadata["name"]
+        version = metadata["version"]
+        previous_version = self._skill_versions.get(skill_name)
+
+        if previous_version == version:
+            logger.info(
+                "Skipping unchanged skill registration",
+                extra={"skill_name": skill_name, "version": version, "path": path},
+            )
+            return
+
+        effective_action = "UPDATED" if previous_version else "ADDED"
+
+        registered = self.hiclaw.nacos_register(
+            service_name=f"skill.{skill_name}",
+            metadata={"version": version, "path": path, "action": effective_action},
         )
+
+        if not registered:
+            self.matrix.send_to_room(
+                room="#skill-updates:daemon.local",
+                message=f"❌ Skill FAILED: `{skill_name}` v{version} — registration failed after retries",
+            )
+            return
+
+        self._skill_versions[skill_name] = version
 
         self.matrix.send_to_room(
             room="#skill-updates:daemon.local",
-            message=f"🧠 Skill {action}: `{metadata['name']}` v{metadata['version']} — hot-reloaded",
+            message=f"🧠 Skill {effective_action}: `{skill_name}` v{version} — hot-reloaded",
         )
 
 
