@@ -83,6 +83,7 @@ class OmniWorkflow:
                 {
                     "prism_validation_status": "unknown",
                     "nemoclaw_validation_status": "unknown",
+                    **getattr(self.reviewer, "last_openhuman_observability", {}),
                 }
             )
 
