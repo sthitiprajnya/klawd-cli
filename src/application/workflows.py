@@ -9,6 +9,7 @@ from src.domain.agents import PlannerAgent, EngineerAgent, ReviewerAgent, Absorb
 from src.domain.agents.reviewer import ReviewResult, ReviewStatus
 from src.domain.skills import skill_manager
 from src.infrastructure.memory.agent_memory import agent_memory
+from src.settings import settings
 
 logger = logging.getLogger("Workflows")
 
@@ -57,7 +58,12 @@ class OmniWorkflow:
 
         skill_name = f"skill_{int(time.time())}"
         if skill_manager.load_skill(skill_name, clean_code):
-            agent_memory.store_outcome("Absorption Protocol", clean_code, f"Absorbed {skill_name}")
+            agent_memory.store_outcome(
+                "Absorption Protocol",
+                clean_code,
+                f"Absorbed {skill_name}",
+                metadata={"domain": "arap", "layer": "absorption", "job_id": "unknown", "skill_name": skill_name},
+            )
             return True
         return False
 
@@ -68,9 +74,10 @@ class OmniWorkflow:
 
         logger.info(f"Starting standard workflow: {task}")
 
-        past_lessons = agent_memory.retrieve_lessons(context=task)
+        past_lessons = agent_memory.retrieve_lessons(context=task, top_k=settings.mempalace_semantic_top_k)
+        bounded_lessons = past_lessons[:settings.mempalace_semantic_max_chars]
         skills = skill_manager.list_skills()
-        context = f"Prior Lessons:\n{past_lessons}\nAvailable Skills: {skills}"
+        context = f"Prior Lessons (top-k semantic):\n{bounded_lessons}\nAvailable Skills: {skills}"
 
         plan = self.planner.create_plan(f"Task: {task}\nContext: {context}")
         code = self.engineer.write_code(plan)
@@ -103,7 +110,14 @@ class OmniWorkflow:
             "failure_class": failure_class,
             "reflection": reflection,
         }
-        agent_memory.store_outcome(task, code, json.dumps(review_artifact))
+        job_id_match = re.search(r"\[job_id=([^;\]]+)", task)
+        job_id = job_id_match.group(1) if job_id_match else "unknown"
+        agent_memory.store_outcome(
+            task,
+            code,
+            json.dumps(review_artifact),
+            metadata={"domain": "arap", "layer": "workflow", "job_id": job_id, "skill_name": "planner"},
+        )
 
         return plan, code, final_review.feedback
 
