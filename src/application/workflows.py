@@ -3,7 +3,7 @@ import time
 import logging
 import re
 import subprocess
-from typing import Any, Tuple
+from typing import Any
 
 from src.domain.agents import PlannerAgent, EngineerAgent, ReviewerAgent, AbsorberAgent
 from src.domain.agents.reviewer import ReviewResult, ReviewStatus
@@ -26,11 +26,6 @@ class OmniWorkflow:
         return match.group(1) if match else text
 
     def _run_static_review_hooks(self, code: str) -> list[dict[str, Any]]:
-        """Deterministic static review pipeline hook.
-
-        Contract (parseable): list[dict] with keys:
-        tool, status, severity, message, rule_id, line.
-        """
         cmd = ["semgrep", "--config=p/security-audit", "--json", "--quiet", "-"]
         try:
             result = subprocess.run(cmd, input=code.encode("utf-8"), capture_output=True, timeout=60)
@@ -51,7 +46,6 @@ class OmniWorkflow:
             return [{"tool": "semgrep", "status": "error", "severity": "ERROR", "message": str(e), "rule_id": "hook_exception", "line": 0}]
 
     def process_absorption(self, task: str) -> bool:
-        logger.info("Starting Absorption Protocol")
         raw_code = self.absorber.absorb_repo(task)
         clean_code = self._extract_code(raw_code)
 
@@ -61,12 +55,23 @@ class OmniWorkflow:
             return True
         return False
 
-    def process_task(self, task: str) -> Tuple[str, str, str]:
+    def process_task(self, task: str) -> dict[str, Any]:
+        started_at = time.time()
+
         if "github.com" in task.lower() or "absorb" in task.lower():
             success = self.process_absorption(task)
-            return "Absorption Task", "Code Saved", "Success" if success else "Failed"
-
-        logger.info(f"Starting standard workflow: {task}")
+            return {
+                "plan": "Absorption Task",
+                "code": "Code Saved",
+                "review_feedback": "Success" if success else "Failed",
+                "status": "completed" if success else "failed",
+                "review_artifact": {},
+                "skills_absorbed": ["dynamic" if success else ""],
+                "model_used": "n/a",
+                "tokens_used": 0,
+                "threat_score": 0,
+                "latency_ms": int((time.time() - started_at) * 1000),
+            }
 
         past_lessons = agent_memory.retrieve_lessons(context=task)
         skills = skill_manager.list_skills()
@@ -79,19 +84,11 @@ class OmniWorkflow:
         for _ in range(self.max_iterations):
             review = self.reviewer.review_code(code)
             review.static_checks = self._run_static_review_hooks(code)
-            review.metadata.update(
-                {
-                    "prism_validation_status": "unknown",
-                    "nemoclaw_validation_status": "unknown",
-                }
-            )
-
-            if review.status in {ReviewStatus.PASS, ReviewStatus.PASS_WITH_NOTES}:
-                final_review = review
-                break
-
-            code = self.engineer.iterate_code(code, review.feedback)
+            review.metadata.update({"prism_validation_status": "unknown", "nemoclaw_validation_status": "unknown"})
             final_review = review
+            if review.status in {ReviewStatus.PASS, ReviewStatus.PASS_WITH_NOTES}:
+                break
+            code = self.engineer.iterate_code(code, review.feedback)
 
         reflection = self.reviewer.reflect(code, final_review.feedback)
         failure_class = "LOGIC" if final_review.status == ReviewStatus.FAIL_WITH_FEEDBACK else "NONE"
@@ -105,7 +102,19 @@ class OmniWorkflow:
         }
         agent_memory.store_outcome(task, code, json.dumps(review_artifact))
 
-        return plan, code, final_review.feedback
+        wf_status = "failed" if final_review.status == ReviewStatus.FAIL_WITH_FEEDBACK else "completed"
+        return {
+            "plan": plan,
+            "code": code,
+            "review_feedback": final_review.feedback,
+            "status": wf_status,
+            "review_artifact": review_artifact,
+            "skills_absorbed": skills,
+            "model_used": "router_default",
+            "tokens_used": len(code.split()) + len(plan.split()),
+            "threat_score": 0,
+            "latency_ms": int((time.time() - started_at) * 1000),
+        }
 
 
 workflow = OmniWorkflow()
