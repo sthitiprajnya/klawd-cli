@@ -76,6 +76,43 @@ Check the daemon status:
 sudo systemctl status omni_agent
 ```
 
+## OpenHuman Context Integration (Config + Runbook)
+
+### Environment keys
+
+The agent's OpenHuman JSON-RPC integration is configurable via environment variables:
+
+- `OPENHUMAN_JSONRPC_URL` (default: `http://openhuman-core:7788/jsonrpc`)
+- `OPENHUMAN_TIMEOUT_SECONDS` (default: `2.0`)
+- `OPENHUMAN_MAX_RETRIES` (default: `1`, total attempts = retries + initial attempt)
+
+### JSON-RPC dependency behavior
+
+The base agent fetches context from OpenHuman using `memory_tree.get` and supports payload adapters for both:
+
+- `memory_tree.get`-style responses: `{"result": {"context": "..."}}`
+- `prompt.update`-style responses: `{"result": "..."}`
+
+If OpenHuman fails (timeout, malformed payload, non-200 status), the agent **continues processing** with an explicit stateless marker:
+
+- `[Context: Stateless fallback mode enabled (OpenHuman unavailable)]`
+
+### Health and observability runbook
+
+OpenHuman is treated as a **degradable dependency** for prompt context enrichment and does not hard-fail job execution.
+
+For every review iteration, workflow metadata includes OpenHuman observability fields:
+
+- `openhuman_available` (`true`/`false`)
+- `openhuman_latency_ms` (number or `null`)
+- `openhuman_error` (error classifier or `null`)
+- `openhuman_attempts` (attempt count)
+
+Operational guidance:
+
+1. If `openhuman_available=false` and `openhuman_error=timeout`, increase `OPENHUMAN_TIMEOUT_SECONDS` or investigate network/service latency.
+2. If `openhuman_error=malformed_jsonrpc_payload`, verify OpenHuman response schema compatibility.
+3. If repeated failures persist, jobs will continue in stateless mode; treat this as degraded quality context, not platform outage.
 
 ## Skill Schema Validation
 

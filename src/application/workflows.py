@@ -172,6 +172,16 @@ class OmniWorkflow:
             )
         snapshot = self._load_snapshot(task) or WorkflowSnapshot(task=task, max_retries=self.max_iterations)
         final_review = ReviewResult(status=ReviewStatus.FAIL_WITH_FEEDBACK, feedback="Initial pending review")
+        for _ in range(self.max_iterations):
+            review = self.reviewer.review_code(code)
+            review.static_checks = self._run_static_review_hooks(code)
+            review.metadata.update(
+                {
+                    "prism_validation_status": "unknown",
+                    "nemoclaw_validation_status": "unknown",
+                    **getattr(self.reviewer, "last_openhuman_observability", {}),
+                }
+            )
 
         while not snapshot.completed:
             state = snapshot.state
