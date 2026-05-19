@@ -1,8 +1,10 @@
 from pathlib import Path
+from types import SimpleNamespace
 
 from src.domain.arap.skill_parser import parse_skill_frontmatter, validate_skill_schema
 from src.domain.skills import SkillManager
 from src.infrastructure.registry.skill_registry import parse_skill_metadata
+from src.infrastructure.registry.skill_registry import HiClawClient, SkillHotReloader
 
 
 def _valid_skill_md() -> str:
@@ -21,6 +23,44 @@ license: MIT
 """
 
 
+def _missing_fields_skill_md() -> str:
+    return """---
+name: bad-skill
+version: 1.0.0
+---
+# Bad Skill
+"""
+
+
+def _wrong_type_skill_md() -> str:
+    return """---
+name: test-skill
+description: A test skill
+triggers: test
+dependencies:
+  - requests
+version: 1.0.0
+author: test-author
+license: MIT
+---
+# Test Skill
+"""
+
+
+def _empty_list_skill_md() -> str:
+    return """---
+name: test-skill
+description: A test skill
+triggers: []
+dependencies: []
+version: 1.0.0
+author: test-author
+license: MIT
+---
+# Test Skill
+"""
+
+
 def test_parse_valid_skill_schema():
     frontmatter = parse_skill_frontmatter(_valid_skill_md())
     is_valid, errors = validate_skill_schema(frontmatter)
@@ -30,18 +70,29 @@ def test_parse_valid_skill_schema():
 
 
 def test_reject_missing_required_fields():
-    invalid = """---
-name: bad-skill
-version: 1.0.0
----
-# Bad Skill
-"""
-    frontmatter = parse_skill_frontmatter(invalid)
+    frontmatter = parse_skill_frontmatter(_missing_fields_skill_md())
     is_valid, errors = validate_skill_schema(frontmatter)
 
     assert is_valid is False
     assert "missing required field 'description'" in errors
     assert "missing required field 'triggers'" in errors
+
+
+def test_reject_wrong_type_fields():
+    frontmatter = parse_skill_frontmatter(_wrong_type_skill_md())
+    is_valid, errors = validate_skill_schema(frontmatter)
+
+    assert is_valid is False
+    assert "field 'triggers' must be of type list, got str" in errors
+
+
+def test_reject_empty_list_fields():
+    frontmatter = parse_skill_frontmatter(_empty_list_skill_md())
+    is_valid, errors = validate_skill_schema(frontmatter)
+
+    assert is_valid is False
+    assert "field 'triggers' must not be empty" in errors
+    assert "field 'dependencies' must not be empty" in errors
 
 
 def test_registry_and_manager_skip_invalid_skill_files(tmp_path: Path):
@@ -53,13 +104,18 @@ def test_registry_and_manager_skip_invalid_skill_files(tmp_path: Path):
     invalid_dir = tmp_path / "invalid"
     invalid_dir.mkdir()
     invalid_skill = invalid_dir / "SKILL.md"
-    invalid_skill.write_text("---\nname: broken\n---\n", encoding="utf-8")
+    invalid_skill.write_text(_missing_fields_skill_md(), encoding="utf-8")
 
     non_skill = tmp_path / "README.md"
     non_skill.write_text("not a skill", encoding="utf-8")
 
     assert parse_skill_metadata(str(valid_skill)) is not None
-    assert parse_skill_metadata(str(invalid_skill)) is None
+
+    invalid_metadata = parse_skill_metadata(str(invalid_skill))
+    assert invalid_metadata is not None
+    assert invalid_metadata.get("error", {}).get("file_path") == str(invalid_skill)
+    assert "missing required field 'description'" in invalid_metadata.get("error", {}).get("validation_errors", [])
+
     assert parse_skill_metadata(str(non_skill)) is None
 
     manager = SkillManager(skills_dir=str(tmp_path))
@@ -68,3 +124,87 @@ def test_registry_and_manager_skip_invalid_skill_files(tmp_path: Path):
     listed = manager.list_skills()
     assert "test-skill" in listed
     assert "broken" not in listed
+
+
+def test_hot_reloader_skips_duplicate_version_events(tmp_path: Path):
+    skill_dir = tmp_path / "dup"
+    skill_dir.mkdir()
+    skill_file = skill_dir / "SKILL.md"
+    skill_file.write_text(_valid_skill_md(), encoding="utf-8")
+
+    reloader = SkillHotReloader()
+    nacos_calls: list[tuple[str, dict]] = []
+    matrix_messages: list[str] = []
+
+    reloader.hiclaw.nacos_register = lambda service_name, metadata: nacos_calls.append((service_name, metadata)) or True
+    reloader.matrix.send_to_room = lambda room, message: matrix_messages.append(message)
+
+    event = SimpleNamespace(src_path=str(skill_file), is_directory=False)
+    reloader.on_modified(event)
+    reloader.on_modified(event)
+
+    assert len(nacos_calls) == 1
+    assert len(matrix_messages) == 1
+    assert "ADDED" in matrix_messages[0]
+
+
+def test_hot_reloader_ignores_invalid_metadata(tmp_path: Path):
+    skill_dir = tmp_path / "bad"
+    skill_dir.mkdir()
+    skill_file = skill_dir / "SKILL.md"
+    skill_file.write_text("---\nname: only-name\n---\n", encoding="utf-8")
+
+    reloader = SkillHotReloader()
+    nacos_calls: list[tuple[str, dict]] = []
+    matrix_messages: list[str] = []
+    reloader.hiclaw.nacos_register = lambda service_name, metadata: nacos_calls.append((service_name, metadata)) or True
+    reloader.matrix.send_to_room = lambda room, message: matrix_messages.append(message)
+
+    reloader.on_modified(SimpleNamespace(src_path=str(skill_file), is_directory=False))
+
+    assert nacos_calls == []
+    assert matrix_messages == []
+
+
+def test_hiclaw_register_retry_success(monkeypatch):
+    client = HiClawClient()
+    attempts = {"count": 0}
+
+    class DummyResponse:
+        def raise_for_status(self):
+            return None
+
+    def _post(*args, **kwargs):
+        attempts["count"] += 1
+        if attempts["count"] < 2:
+            raise RuntimeError("temporary")
+        return DummyResponse()
+
+    monkeypatch.setattr("src.infrastructure.registry.skill_registry.httpx.post", _post)
+    monkeypatch.setattr("src.infrastructure.registry.skill_registry.time.sleep", lambda *_: None)
+
+    assert client.nacos_register("skill.test", {"version": "1.0.0"}, retries=3, retry_delay=0) is True
+    assert attempts["count"] == 2
+
+
+def test_hiclaw_register_retry_failure_and_matrix_failure_notice(tmp_path: Path, monkeypatch):
+    skill_dir = tmp_path / "fail"
+    skill_dir.mkdir()
+    skill_file = skill_dir / "SKILL.md"
+    skill_file.write_text(_valid_skill_md(), encoding="utf-8")
+
+    reloader = SkillHotReloader()
+    monkeypatch.setattr(
+        reloader.hiclaw,
+        "nacos_register",
+        lambda service_name, metadata: False,
+    )
+
+    messages: list[str] = []
+    reloader.matrix.send_to_room = lambda room, message: messages.append(message)
+
+    reloader.on_modified(SimpleNamespace(src_path=str(skill_file), is_directory=False))
+
+    assert len(messages) == 1
+    assert "FAILED" in messages[0]
+    assert "bad-skill" not in listed
