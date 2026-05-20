@@ -30,8 +30,11 @@ class ReviewerAgent(BaseAgent):
     def __init__(self):
         super().__init__(name="Charlie", role="Reviewer", system_prompt=REVIEWER_PROMPT)
 
-    def review_code(self, code: str) -> ReviewResult:
-        review_text = self.process(code, task_type="complex").strip()
+    def review_code(self, code: str, openhuman_context: dict | None = None) -> ReviewResult:
+        prompt = code
+        if openhuman_context:
+            prompt = f"{code}\n\nOpenHuman Context: {openhuman_context}"
+        review_text = self.process(prompt, task_type="complex").strip()
         first_line = review_text.splitlines()[0].strip() if review_text else ""
 
         if first_line.startswith(ReviewStatus.PASS.value):
@@ -42,3 +45,9 @@ class ReviewerAgent(BaseAgent):
             status = ReviewStatus.FAIL_WITH_FEEDBACK
 
         return ReviewResult(status=status, feedback=review_text)
+
+    def reflect(self, code: str, feedback: str, openhuman_context: dict | None = None) -> str:
+        prompt = f"Reflect on this review.\nCode:\n{code}\n\nFeedback:\n{feedback}"
+        if openhuman_context:
+            prompt += f"\n\nOpenHuman Context: {openhuman_context}"
+        return self.process(prompt, task_type="fast")

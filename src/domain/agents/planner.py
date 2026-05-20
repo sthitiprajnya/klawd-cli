@@ -10,5 +10,7 @@ class PlannerAgent(BaseAgent):
     def __init__(self):
         super().__init__(name="Alice", role="Planner", system_prompt=PLANNER_PROMPT)
 
-    def create_plan(self, request: str) -> str:
+    def create_plan(self, request: str, openhuman_context: dict | None = None) -> str:
+        if openhuman_context:
+            request = f"{request}\n\nOpenHuman Context: {openhuman_context}"
         return self.process(request, task_type="fast")
