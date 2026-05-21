@@ -1,5 +1,4 @@
 import subprocess, httpx, json
-from pathlib import Path
 from dataclasses import dataclass, field
 from openai import OpenAI
 
