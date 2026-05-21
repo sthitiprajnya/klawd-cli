@@ -61,6 +61,14 @@ def handle_failure(error_message: str, *, max_self_heal_attempts: int = 3):
     elif cls in ["INFRA", "UNKNOWN"]:
         alert_human("#daemon-ops:daemon.local", error_message)
     elif cls == "LOGIC":
+        enter_self_healing_loop(error_message)
+
+
+def classify_failure_with_context(error_message: str, openhuman_context: dict[str, object] | None = None) -> str:
+    cls = classify_failure(error_message)
+    if openhuman_context and openhuman_context.get("openhuman_status") == "degraded" and cls == "UNKNOWN":
+        return "FLAKE"
+    return cls
         sig = _root_signature(error_message)
         _LOGIC_CLUSTER_COUNTS[sig] = _LOGIC_CLUSTER_COUNTS.get(sig, 0) + 1
         if _LOGIC_CLUSTER_COUNTS[sig] <= max_self_heal_attempts:
