@@ -1,0 +1,9 @@
+{
+  "skill_name": "fixture-json",
+  "summary": "JSON adapted skill",
+  "activation": ["adapted"],
+  "requires": ["httpx"],
+  "semver": "2.3.1",
+  "owner": "fixtures",
+  "license": "Apache-2.0"
+}
