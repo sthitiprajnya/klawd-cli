@@ -2,8 +2,8 @@
 """
 R&D Continuous Daemon (Hermes-Agent Inspired)
 """
-import time
-import requests
+import asyncio
+import httpx
 import random
 import logging
 
@@ -18,22 +18,23 @@ RESEARCH_TASKS = [
     "Absorb https://github.com/psf/black and create a code formatter skill.",
 ]
 
-def submit_job():
+async def submit_job(client: httpx.AsyncClient):
     task = random.choice(RESEARCH_TASKS)
     logging.info(f"Submitting self-evolution task: {task}")
     try:
-        response = requests.post(API_URL, json={"task": task})
+        response = await client.post(API_URL, json={"task": task})
         if response.status_code == 200:
             logging.info(f"Job successfully queued: {response.json()['job_id']}")
-    except requests.exceptions.ConnectionError:
+    except httpx.ConnectError:
         logging.error("Could not connect to OmniAgent API. Ensure uvicorn is running.")
 
-def run_daemon():
+async def run_daemon():
     logging.info("Starting Hermes-inspired Continuous R&D Daemon...")
-    while True:
-        submit_job()
-        sleep_time = random.randint(10, 30)
-        time.sleep(sleep_time)
+    async with httpx.AsyncClient() as client:
+        while True:
+            await submit_job(client)
+            sleep_time = random.randint(10, 30)
+            await asyncio.sleep(sleep_time)
 
 if __name__ == "__main__":
-    run_daemon()
+    asyncio.run(run_daemon())

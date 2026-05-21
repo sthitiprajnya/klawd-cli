@@ -150,16 +150,22 @@ class SkillHotReloader(FileSystemEventHandler):
         )
 
 
-if __name__ == "__main__":
+async def _main():
     event_handler = SkillHotReloader()
     observer = Observer()
     observer.schedule(event_handler, path="/var/lib/daemon/skills", recursive=True)
     observer.start()
     try:
-        import time
-
         while True:
-            time.sleep(1)
+            await asyncio.sleep(1)
+    except asyncio.CancelledError:
+        pass
     except KeyboardInterrupt:
+        pass
+    finally:
         observer.stop()
-    observer.join()
+        observer.join()
+
+if __name__ == "__main__":
+    import asyncio
+    asyncio.run(_main())
