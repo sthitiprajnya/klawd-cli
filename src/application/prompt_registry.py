@@ -1,6 +1,13 @@
 import datetime as dt
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Callable
+
+
+@dataclass(frozen=True)
+class EvalInputContract:
+    dataset_version: str
+    evaluation_run_id: str
+    contamination_window_end: str
 
 
 @dataclass
@@ -15,13 +22,7 @@ class PromptVersionRecord:
 class PromptVersionRegistry:
     """Tracks prompt versions, evaluation metadata, promotions, and rollbacks."""
 
-    def __init__(
-        self,
-        *,
-        minimum_improvement_threshold: float = 0.05,
-        notifier: callable | None = None,
-        audit_logger: callable | None = None,
-    ):
+    def __init__(self, *, minimum_improvement_threshold: float = 0.05, notifier: Callable | None = None, audit_logger: Callable | None = None):
         self.minimum_improvement_threshold = minimum_improvement_threshold
         self.notifier = notifier or (lambda _event: None)
         self.audit_logger = audit_logger or (lambda _event: None)
@@ -45,68 +46,29 @@ class PromptVersionRegistry:
     def _build_rubric(self, recent_job_outcomes: list[dict[str, Any]], reviewer_artifacts: list[dict[str, Any]]) -> dict[str, float]:
         success_count = sum(1 for outcome in recent_job_outcomes if outcome.get("status") == "completed")
         completion_rate = success_count / max(1, len(recent_job_outcomes))
-
         pass_count = sum(1 for artifact in reviewer_artifacts if artifact.get("status") in {"pass", "pass_with_notes"})
         review_pass_rate = pass_count / max(1, len(reviewer_artifacts))
-
         avg_static_findings = sum(artifact.get("static_findings", 0) for artifact in reviewer_artifacts) / max(1, len(reviewer_artifacts))
         static_quality = max(0.0, 1.0 - (avg_static_findings / 10.0))
+        return {"completion_rate": completion_rate, "review_pass_rate": review_pass_rate, "static_quality": static_quality}
 
-        return {
-            "completion_rate": completion_rate,
-            "review_pass_rate": review_pass_rate,
-            "static_quality": static_quality,
-        }
-
-    def evaluate_candidate(
-        self,
-        *,
-        candidate_version: str,
-        recent_job_outcomes: list[dict[str, Any]],
-        reviewer_artifacts: list[dict[str, Any]],
-        held_out_score: float,
-    ) -> tuple[float, dict[str, float]]:
+    def evaluate_candidate(self, *, candidate_version: str, recent_job_outcomes: list[dict[str, Any]], reviewer_artifacts: list[dict[str, Any]], held_out_score: float) -> tuple[float, dict[str, float]]:
         rubric = self._build_rubric(recent_job_outcomes, reviewer_artifacts)
-        weighted_score = (
-            (rubric["completion_rate"] * 0.35)
-            + (rubric["review_pass_rate"] * 0.35)
-            + (rubric["static_quality"] * 0.10)
-            + (held_out_score * 0.20)
-        )
-
+        weighted_score = (rubric["completion_rate"] * 0.35) + (rubric["review_pass_rate"] * 0.35) + (rubric["static_quality"] * 0.10) + (held_out_score * 0.20)
         self._versions.setdefault(candidate_version, PromptVersionRecord(version=candidate_version, score=0.0))
         return weighted_score, rubric
 
-    def try_promote(
-        self,
-        *,
-        candidate_version: str,
-        recent_job_outcomes: list[dict[str, Any]],
-        reviewer_artifacts: list[dict[str, Any]],
-        held_out_score: float,
-    ) -> bool:
-        candidate_score, rubric = self.evaluate_candidate(
-            candidate_version=candidate_version,
-            recent_job_outcomes=recent_job_outcomes,
-            reviewer_artifacts=reviewer_artifacts,
-            held_out_score=held_out_score,
-        )
+    def try_promote(self, *, candidate_version: str, recent_job_outcomes: list[dict[str, Any]], reviewer_artifacts: list[dict[str, Any]], held_out_score: float, eval_input: EvalInputContract, safety_metrics: dict[str, float], baseline_safety_metrics: dict[str, float], retry_budget_remaining: int) -> bool:
+        candidate_score, rubric = self.evaluate_candidate(candidate_version=candidate_version, recent_job_outcomes=recent_job_outcomes, reviewer_artifacts=reviewer_artifacts, held_out_score=held_out_score)
         current_score = self._versions[self._active_version].score if self._active_version else 0.0
         improvement = candidate_score - current_score
+        contamination_ok = bool(eval_input.contamination_window_end)
+        safety_ok = all(safety_metrics.get(k, 0.0) >= baseline_safety_metrics.get(k, 0.0) for k in baseline_safety_metrics)
+        retry_ok = retry_budget_remaining > 0
+        gate_ok = improvement >= self.minimum_improvement_threshold and contamination_ok and safety_ok and retry_ok
 
-        if improvement < self.minimum_improvement_threshold:
-            event = {
-                "event": "prompt_promotion_rejected",
-                "candidate_version": candidate_version,
-                "candidate_score": candidate_score,
-                "current_version": self._active_version,
-                "current_score": current_score,
-                "improvement": improvement,
-                "threshold": self.minimum_improvement_threshold,
-                "rubric": rubric,
-                "held_out_score": held_out_score,
-                "occurred_at": dt.datetime.now(dt.timezone.utc).isoformat(),
-            }
+        if not gate_ok:
+            event = {"event": "prompt_promotion_rejected", "candidate_version": candidate_version, "candidate_score": candidate_score, "current_version": self._active_version, "current_score": current_score, "improvement": improvement, "threshold": self.minimum_improvement_threshold, "rubric": rubric, "held_out_score": held_out_score, "eval_input": eval_input.__dict__, "safety_metrics": safety_metrics, "baseline_safety_metrics": baseline_safety_metrics, "retry_budget_remaining": retry_budget_remaining, "occurred_at": dt.datetime.now(dt.timezone.utc).isoformat()}
             self.audit_logger(event)
             self.notifier(event)
             return False
@@ -115,19 +77,10 @@ class PromptVersionRegistry:
         record.score = candidate_score
         record.promoted_at = dt.datetime.now(dt.timezone.utc)
         record.rolled_back_at = None
-        record.metadata = {"rubric": rubric, "held_out_score": held_out_score}
+        record.metadata = {"rubric": rubric, "held_out_score": held_out_score, "eval_input": eval_input.__dict__, "safety_metrics": safety_metrics}
         self._active_version = candidate_version
 
-        event = {
-            "event": "prompt_promoted",
-            "version": candidate_version,
-            "score": candidate_score,
-            "improvement": improvement,
-            "threshold": self.minimum_improvement_threshold,
-            "rubric": rubric,
-            "held_out_score": held_out_score,
-            "occurred_at": record.promoted_at.isoformat(),
-        }
+        event = {"event": "prompt_promoted", "version": candidate_version, "score": candidate_score, "improvement": improvement, "threshold": self.minimum_improvement_threshold, "rubric": rubric, "held_out_score": held_out_score, "eval_input": eval_input.__dict__, "occurred_at": record.promoted_at.isoformat()}
         self.audit_logger(event)
         self.notifier(event)
         return True
@@ -135,20 +88,12 @@ class PromptVersionRegistry:
     def rollback(self, *, to_version: str, reason: str) -> PromptVersionRecord:
         if to_version not in self._versions:
             raise ValueError(f"Unknown version: {to_version}")
-
         now = dt.datetime.now(dt.timezone.utc)
         if self._active_version and self._active_version in self._versions:
             self._versions[self._active_version].rolled_back_at = now
-
         self._active_version = to_version
         record = self._versions[to_version]
-        event = {
-            "event": "prompt_rolled_back",
-            "to_version": to_version,
-            "reason": reason,
-            "score": record.score,
-            "rolled_back_at": now.isoformat(),
-        }
+        event = {"event": "prompt_rolled_back", "to_version": to_version, "reason": reason, "score": record.score, "rolled_back_at": now.isoformat()}
         self.audit_logger(event)
         self.notifier(event)
         return record

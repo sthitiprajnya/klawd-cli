@@ -1,10 +1,12 @@
 import json
+import hashlib
 import logging
 import time
 import uuid
 from datetime import datetime, timezone
 
 import httpx
+
 
 logger = logging.getLogger("FailureClassifier")
 
@@ -15,6 +17,8 @@ FAILURE_CLASSES = {
 }
 
 MAX_SELF_HEAL_ATTEMPTS = 3
+_LOGIC_CLUSTER_COUNTS: dict[str, int] = {}
+_LOGIC_ESCALATED: set[str] = set()
 
 
 def classify_failure(error_message: str) -> str:
@@ -35,6 +39,7 @@ def alert_human(room: str, error_message: str):
     try:
         room_id = room.replace("#", "%23").replace(":", "%3A")
         url = f"http://tuwunel-matrix:8008/_matrix/client/v3/rooms/{room_id}/send/m.room.message/{uuid.uuid4()}"
+        import httpx
         httpx.put(url, json={"msgtype": "m.text", "body": f"🚨 URGENT INFRA FAILURE: {error_message}"})
     except Exception as e:
         logger.error("Failed to alert human on Matrix: %s", e)
@@ -49,6 +54,17 @@ def _enqueue_dead_letter(error_message: str, attempts: int) -> None:
     }
     try:
         httpx.post("http://localhost:8000/api/v1/dead-letter", json=payload, timeout=2.0)
+
+def _root_signature(error_message: str) -> str:
+    normalized = " ".join(error_message.lower().split())
+    return hashlib.sha256(normalized.encode()).hexdigest()[:16]
+
+
+def enter_self_healing_loop(error_message: str):
+    logger.info(f"LOGIC failure detected. Entering self-healing loop for: {error_message}")
+    try:
+        import httpx
+        httpx.post("http://localhost:8000/api/v1/jobs", json={"task": f"Self-heal failure: {error_message}"})
     except Exception as e:
         logger.error("Failed to enqueue dead-letter item: %s", e)
 
@@ -82,7 +98,8 @@ def _extract_attempts(error_message: str) -> int:
         return 1
 
 
-def handle_failure(error_message: str):
+
+def handle_failure(error_message: str, *, max_self_heal_attempts: int = 3):
     cls = classify_failure(error_message)
     if cls == "FLAKE":
         retry_after(120)
@@ -91,3 +108,18 @@ def handle_failure(error_message: str):
     elif cls == "LOGIC":
         attempts = _extract_attempts(error_message)
         enter_self_healing_loop(error_message, attempts=attempts + 1)
+        enter_self_healing_loop(error_message)
+
+
+def classify_failure_with_context(error_message: str, openhuman_context: dict[str, object] | None = None) -> str:
+    cls = classify_failure(error_message)
+    if openhuman_context and openhuman_context.get("openhuman_status") == "degraded" and cls == "UNKNOWN":
+        return "FLAKE"
+    return cls
+        sig = _root_signature(error_message)
+        _LOGIC_CLUSTER_COUNTS[sig] = _LOGIC_CLUSTER_COUNTS.get(sig, 0) + 1
+        if _LOGIC_CLUSTER_COUNTS[sig] <= max_self_heal_attempts:
+            enter_self_healing_loop(error_message)
+        elif sig not in _LOGIC_ESCALATED:
+            alert_human("#daemon-ops:daemon.local", f"Repeated LOGIC failure cluster={sig}: {error_message}")
+            _LOGIC_ESCALATED.add(sig)

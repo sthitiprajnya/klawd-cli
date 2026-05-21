@@ -6,6 +6,8 @@ import httpx
 import uuid
 import logging
 
+from src.infrastructure.rust_workers import RustWorkerClient, RustWorkerError
+
 logger = logging.getLogger("ThreadParker")
 r = redis.Redis(host="redis", port=6379, decode_responses=True)
 
@@ -13,6 +15,8 @@ MAX_PARK_DURATION = 300
 ERROR_WINDOW_SECONDS = 300
 DEGRADED_WINDOW_SECONDS = 180
 FAILURE_THRESHOLD = 3
+
+rust_workers = RustWorkerClient()
 
 
 def get_all_configured_keys(pool: str) -> list[str]:
@@ -81,9 +85,14 @@ class ThreadParker:
             logger.warning(f"No API keys configured for pool={model_pool}")
             return None
 
+        try:
+            statuses = rust_workers.get_provider_status(model_pool, configured_keys)
+        except RustWorkerError as exc:
+            logger.warning("Rust prober unavailable, using Redis-only fallback: %s", exc)
+            statuses = {k: True for k in configured_keys}
+
         for key in configured_keys:
             cooldown_key = f"litellm:cooldown:{model_pool}:{key}"
-            degraded_key = f"litellm:provider_degraded:{model_pool}:{key}"
-            if not r.exists(cooldown_key) and not r.exists(degraded_key):
+            if not r.exists(cooldown_key) and statuses.get(key, False):
                 return key
         return None

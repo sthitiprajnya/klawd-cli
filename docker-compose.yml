@@ -115,3 +115,21 @@ services:
 
   redis:
     image: redis:7-alpine
+
+  rust-provider-prober:
+    build:
+      context: ./rust-workers
+    environment:
+      - PORT=8081
+
+  rust-skill-ingestor:
+    build:
+      context: ./rust-workers
+    environment:
+      - PORT=8082
+
+  rust-event-normalizer:
+    build:
+      context: ./rust-workers
+    environment:
+      - PORT=8083
