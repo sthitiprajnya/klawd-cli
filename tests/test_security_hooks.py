@@ -79,3 +79,40 @@ def test_h8_denies_missing_provenance():
     )
     assert verdict.allow is False
     assert verdict.reason == "invalid_artifact_provenance"
+
+
+def test_h2_auditor_allowlist_allows_benign_recon_tool():
+    verdict = prism_check(
+        HookPoint.H2_TOOL_REQUESTED.value,
+        tool_name="nmap_wrapper",
+        agent_role="auditor",
+        params={"target": "example.com"},
+    )
+    assert verdict.allow is True
+    assert verdict.reason == "tool_allowed"
+
+
+def test_h2_blocks_hexstrike_destructive_without_confirmation():
+    verdict = prism_check(
+        HookPoint.H2_TOOL_REQUESTED.value,
+        tool_name="hexstrike_exploit_runner",
+        agent_role="auditor",
+        params={"capability_tags": ["exploit", "lateral-movement"]},
+    )
+    assert verdict.allow is False
+    assert verdict.reason == "destructive_confirmation_missing"
+    assert "require_header:X-Hexstrike-Confirm-Destructive=yes" in verdict.evidence
+
+
+def test_h2_allows_hexstrike_destructive_with_confirmation_header():
+    verdict = prism_check(
+        HookPoint.H2_TOOL_REQUESTED.value,
+        tool_name="hexstrike_exploit_runner",
+        agent_role="auditor",
+        params={
+            "capability_tags": ["db-extract"],
+            "headers": {"X-Hexstrike-Confirm-Destructive": "yes"},
+        },
+    )
+    assert verdict.allow is True
+    assert verdict.reason == "tool_allowed"
