@@ -2,7 +2,7 @@ import pytest
 import httpx
 
 from src.infrastructure.rust_workers.client import RustWorkerClient
-from src.infrastructure.rust_workers.errors import RustWorkerError, RustWorkerTimeoutError, RustWorkerValidationError
+from src.infrastructure.rust_workers.errors import RustWorkerTimeoutError, RustWorkerValidationError
 
 
 class DummyResponse:

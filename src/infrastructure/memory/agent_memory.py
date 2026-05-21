@@ -90,6 +90,8 @@ class AgentMemory:
                 "created_at": timestamp,
                 "updated_at": timestamp,
                 **meta,
+
+                **(metadata or {}),
             },
             "refs": {"parent_id": parent_id, "related_ids": related_ids or []},
         }
@@ -120,6 +122,7 @@ class AgentMemory:
         return parsed
 
     def retrieve_lessons(self, context: str, top_k: int = 3) -> str:
+        records = []
         try:
             payload = {"jsonrpc": "2.0", "method": "retrieve_lessons", "params": {"context": context, "top_k": top_k}, "id": 1}
             response = httpx.post(self.base_url, json=payload, timeout=2.0)
@@ -129,6 +132,7 @@ class AgentMemory:
                     if isinstance(data["result"], list):
                         return "\n---\n".join(data["result"][-3:])
                     return str(data["result"])
+            records = []
             records = self._search_records(context)
             if records:
                 snippets = [json.dumps(r.get("content", r), default=str) for r in records[-3:]]
@@ -136,7 +140,7 @@ class AgentMemory:
             return "No past lessons found."
         except Exception as e:
             logger.warning("Retrieve failed: %s", e)
-            return "\n---\n".join([json.dumps(r.get("content", r), default=str) for r in records[-3:]]) if records else "No past lessons found."
+            return "No past lessons found."
         except Exception:
             return "Could not retrieve past lessons."
 

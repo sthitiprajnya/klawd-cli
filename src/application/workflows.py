@@ -1,16 +1,14 @@
 import json
 import logging
-import re
 import subprocess
 import time
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Callable
 
 from src.application.orchestration.failure_classifier import classify_failure
 from src.domain.agents import AbsorberAgent, AuditorAgent, EngineerAgent, PlannerAgent, ReviewerAgent
 from src.domain.agents.reviewer import ReviewResult, ReviewStatus
-from src.domain.skills import skill_manager
 from src.infrastructure.memory.agent_memory import agent_memory
 from src.infrastructure.openhuman.capability_router import resolve_capabilities
 from src.infrastructure.security.hooks import HookPoint
@@ -55,6 +53,10 @@ class OmniWorkflow:
         self.auditor = AuditorAgent()
         self.absorber = AbsorberAgent()
         self.max_iterations = 3
+        self.event_sinks = []
+
+    def register_event_sink(self, sink: Callable[[dict[str, Any]], None]):
+        self.event_sinks.append(sink)
 
     def _run_cyberstrike_bolt_checks(self, code_artifact: str) -> list[dict[str, Any]]:
         try:
@@ -106,7 +108,7 @@ class OmniWorkflow:
             return "Blocked", "", inbound_verdict.reason
 
         lessons = agent_memory.retrieve_lessons(context=task, top_k=settings.mempalace_semantic_top_k)
-        context = f"Prior Lessons:\n{lessons[:settings.mempalace_semantic_max_chars]}"
+        context = f"Prior Lessons:\n{lessons[:settings.mempalace_semantic_max_chars] if lessons else ''}"
 
         oh_ctx = self._build_openhuman_context(task, "plan")
         plan = self.planner.create_plan(f"Task: {task}\nContext: {context}", openhuman_context=asdict(oh_ctx))

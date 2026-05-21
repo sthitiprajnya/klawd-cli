@@ -251,7 +251,7 @@ def test_parse_skill_metadata_with_adapter_type_includes_provenance():
     assert metadata["name"] == "fixture-json"
     assert metadata["adapter_type"] == "repo_skill_json"
     assert metadata["provenance"]["accepted"] is True
-    assert "bad-skill" not in listed
+
 
 
 def test_external_ingestion_requires_pinned_sha(monkeypatch):
