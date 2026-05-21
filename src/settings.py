@@ -1,4 +1,38 @@
 import os
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class ExternalSkillSource:
+    name: str
+    repo_url: str
+    pinned_ref: str
+    enabled: bool = True
+
+
+def _external_source(name: str, url: str, ref_env: str, default_ref: str) -> ExternalSkillSource:
+    return ExternalSkillSource(
+        name=name,
+        repo_url=url,
+        pinned_ref=os.getenv(ref_env, default_ref),
+        enabled=os.getenv(f"{name.upper()}_ENABLED", "true").lower() == "true",
+    )
+
+
+EXTERNAL_SKILL_SOURCES: list[ExternalSkillSource] = [
+    _external_source(
+        "cyberstrike",
+        "https://github.com/CyberStrikeus/CyberStrike",
+        "CYBERSTRIKE_PINNED_REF",
+        "main",
+    ),
+    _external_source(
+        "hexstrike_ai",
+        "https://github.com/0x4m4/hexstrike-ai",
+        "HEXSTRIKE_AI_PINNED_REF",
+        "main",
+    ),
+]
 
 
 class Settings:

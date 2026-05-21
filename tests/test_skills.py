@@ -208,3 +208,24 @@ def test_hiclaw_register_retry_failure_and_matrix_failure_notice(tmp_path: Path,
     assert len(messages) == 1
     assert "FAILED" in messages[0]
     assert "bad-skill" not in listed
+
+
+def test_external_ingestion_requires_pinned_sha(monkeypatch):
+    from src.infrastructure.registry.external_skill_ingestion import ExternalSkillIngestionError, ingest_external_skill_sources
+
+    monkeypatch.setattr("src.infrastructure.registry.external_skill_ingestion.EXTERNAL_SKILL_SOURCES", [])
+    # No configured sources should be a no-op.
+    assert ingest_external_skill_sources() == []
+
+    from src.settings import ExternalSkillSource
+
+    monkeypatch.setattr(
+        "src.infrastructure.registry.external_skill_ingestion.EXTERNAL_SKILL_SOURCES",
+        [ExternalSkillSource(name="cyberstrike", repo_url="https://example.com/repo.git", pinned_ref="main", enabled=True)],
+    )
+
+    try:
+        ingest_external_skill_sources()
+        assert False, "expected ExternalSkillIngestionError"
+    except ExternalSkillIngestionError as exc:
+        assert "pinned commit SHA" in str(exc)
