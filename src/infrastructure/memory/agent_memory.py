@@ -78,8 +78,6 @@ class AgentMemory:
             status=status,
             failure_class=failure_class,
         )
-    def store_outcome(self, task: str, result: str, feedback: str, *, job_id: str | None = None, agent: str = "workflow", status: str = "unknown", failure_class: str = "NONE", parent_id: str | None = None, related_ids: list[str] | None = None, metadata: dict[str, Any] | None = None) -> str:
-        record_id = f"mem_{int(datetime.now(timezone.utc).timestamp() * 1000000)}"
         timestamp = self._utc_now_iso()
         record = {
             "id": record_id,
@@ -102,8 +100,6 @@ class AgentMemory:
             logger.info("Stored unified memory record with idempotency key %s.", record_id)
         except Exception as e:
             logger.error("Failed to store memory: %s", e)
-        except Exception as exc:
-            logger.error("Failed to store memory: %s", exc)
         return record_id
 
     def _search_records(self, query: str) -> list[dict[str, Any]]:
@@ -142,8 +138,6 @@ class AgentMemory:
             return "No past lessons found."
         except Exception as e:
             logger.warning("Retrieve failed: %s", e)
-            return "\n---\n".join([json.dumps(r.get("content", r), default=str) for r in records[-3:]]) if records else "No past lessons found."
-        except Exception:
             return "Could not retrieve past lessons."
 
 
