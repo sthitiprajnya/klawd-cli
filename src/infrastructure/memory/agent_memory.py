@@ -10,8 +10,7 @@ logger = logging.getLogger("Memory")
 
 
 class AgentMemory:
-    def __init__(self, index_name: str = "src_memory"):
-        self.index_name = index_name
+    def __init__(self):
         self.base_url = "http://agentmemory:3111"
         logger.info("Initializing Memory manager connecting to JSON-RPC at %s.", self.base_url)
 
@@ -78,8 +77,6 @@ class AgentMemory:
             status=status,
             failure_class=failure_class,
         )
-    def store_outcome(self, task: str, result: str, feedback: str, *, job_id: str | None = None, agent: str = "workflow", status: str = "unknown", failure_class: str = "NONE", parent_id: str | None = None, related_ids: list[str] | None = None, metadata: dict[str, Any] | None = None) -> str:
-        record_id = f"mem_{int(datetime.now(timezone.utc).timestamp() * 1000000)}"
         timestamp = self._utc_now_iso()
         record = {
             "id": record_id,
@@ -93,7 +90,6 @@ class AgentMemory:
                 "created_at": timestamp,
                 "updated_at": timestamp,
                 **meta,
-                **(metadata or {}),
             },
             "refs": {"parent_id": parent_id, "related_ids": related_ids or []},
         }
@@ -102,8 +98,6 @@ class AgentMemory:
             logger.info("Stored unified memory record with idempotency key %s.", record_id)
         except Exception as e:
             logger.error("Failed to store memory: %s", e)
-        except Exception as exc:
-            logger.error("Failed to store memory: %s", exc)
         return record_id
 
     def _search_records(self, query: str) -> list[dict[str, Any]]:
