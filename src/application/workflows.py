@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from src.application.orchestration.failure_classifier import classify_failure
-from src.domain.agents import AbsorberAgent, EngineerAgent, PlannerAgent, ReviewerAgent
+from src.domain.agents import AbsorberAgent, AuditorAgent, EngineerAgent, PlannerAgent, ReviewerAgent
 from src.domain.agents.reviewer import ReviewResult, ReviewStatus
 from src.domain.skills import skill_manager
 from src.infrastructure.memory.agent_memory import agent_memory
@@ -52,8 +52,29 @@ class OmniWorkflow:
         self.planner = PlannerAgent()
         self.engineer = EngineerAgent()
         self.reviewer = ReviewerAgent()
+        self.auditor = AuditorAgent()
         self.absorber = AbsorberAgent()
         self.max_iterations = 3
+
+    def _run_cyberstrike_bolt_checks(self, code_artifact: str) -> list[dict[str, Any]]:
+        try:
+            result = subprocess.run(["cyberstrike-bolt", "audit", "--format", "json"], input=code_artifact.encode(), capture_output=True, timeout=60)
+            payload = json.loads(result.stdout.decode() or "{}")
+            checks = payload.get("checks", [])
+            return [{"tool": "cyberstrike-bolt", "status": c.get("status", "unknown"), "rule": c.get("rule", "unknown")} for c in checks]
+        except Exception as exc:
+            return [{"tool": "cyberstrike-bolt", "status": "error", "message": str(exc)}]
+
+    def _run_hexstrike_recon(self, audit_context: dict[str, Any] | None = None) -> dict[str, Any]:
+        if not audit_context or not audit_context.get("run_recon"):
+            return {"enabled": False, "findings": []}
+        target = audit_context.get("recon_target", "local")
+        try:
+            result = subprocess.run(["hexstrike-safe", "recon", "metadata", "--target", str(target), "--format", "json"], capture_output=True, timeout=60)
+            payload = json.loads(result.stdout.decode() or "{}")
+            return {"enabled": True, "findings": payload.get("findings", []), "target": target}
+        except Exception as exc:
+            return {"enabled": True, "findings": [], "error": str(exc), "target": target}
 
     def _run_static_review_hooks(self, code: str) -> list[dict[str, Any]]:
         try:
@@ -79,7 +100,7 @@ class OmniWorkflow:
             fallback_reason=route.fallback_reason if degraded else None,
         )
 
-    def process_task(self, task: str):
+    def process_task(self, task: str, audit_requested: bool = False, audit_context: dict[str, Any] | None = None):
         inbound_verdict = prism_check(HookPoint.H1_PROMPT_RECEIVED.value, prompt=task)
         if not inbound_verdict.allow:
             return "Blocked", "", inbound_verdict.reason
@@ -93,16 +114,35 @@ class OmniWorkflow:
         oh_ctx = self._build_openhuman_context(task, "execute")
         code = self.engineer.write_code(plan, openhuman_context=asdict(oh_ctx))
 
+        audit_results: dict[str, Any] = {"enabled": False}
+        auditor_findings = ""
+        if audit_requested:
+            audit_results = {
+                "enabled": True,
+                "auditor": "",
+                "cyberstrike_bolt": [],
+                "hexstrike_recon": {"enabled": False, "findings": []},
+            }
+            oh_ctx = self._build_openhuman_context(task, "audit")
+            auditor_findings = self.auditor.audit_codebase(code, audit_context=audit_context, openhuman_context=asdict(oh_ctx))
+            audit_results["auditor"] = auditor_findings
+            audit_results["cyberstrike_bolt"] = self._run_cyberstrike_bolt_checks(code)
+            audit_results["hexstrike_recon"] = self._run_hexstrike_recon(audit_context)
+
         final_review = ReviewResult(status=ReviewStatus.FAIL_WITH_FEEDBACK, feedback="")
         for i in range(self.max_iterations):
             oh_ctx = self._build_openhuman_context(task, "review")
             review = self.reviewer.review_code(code, openhuman_context=asdict(oh_ctx))
+            if audit_requested:
+                reviewer_context = [review.feedback.strip(), "", "Auditor Findings:", auditor_findings.strip(), "", f"Audit Telemetry: {json.dumps(audit_results)}"]
+                review.feedback = "\n".join(x for x in reviewer_context if x)
             review.static_checks = self._run_static_review_hooks(code)
             review.metadata.update({
                 "telemetry": {
                     "prism": "unknown",
                     "nemoclaw": "unknown",
                     "openhuman": getattr(self.reviewer, "last_openhuman_observability", {}),
+                    "audit": audit_results,
                 },
                 "openhuman_status": oh_ctx.openhuman_status,
             })
@@ -137,6 +177,7 @@ class OmniWorkflow:
                 "confidence": "high" if final_review.status != ReviewStatus.FAIL_WITH_FEEDBACK else "low",
                 "fallback_reason": oh_ctx.fallback_reason,
                 "openhuman_status": oh_ctx.openhuman_status,
+                "audit": audit_results,
             },
         )
         return plan, code, final_review.feedback
