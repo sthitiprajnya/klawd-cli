@@ -19,4 +19,16 @@ agents:
       allow: [/workspace/src/**, /workspace/tests/**, /tmp/**]
       deny: [/var/lib/daemon/**, /etc/**]
     network:
-      egress_allowlist: # AIR GAPPED
+      egress_allowlist: [hexstrike-server, cyberstrike-bolt]
+      egress_denylist: ["0.0.0.0/0"] # default-deny all other egress
+
+  - selector: template=auditor-agent
+    filesystem:
+      allow: [/workspace/**]
+      deny: [/workspace/**/.*, /etc/**, /var/**, /root/**, /home/**, /opt/**]
+      read_only: true
+    network:
+      egress_allowlist: [hexstrike-server, cyberstrike-bolt]
+      egress_denylist: ["0.0.0.0/0"] # default-deny all other egress
+    intent:
+      require_approval: [write_production_database, spawn_agent, modify_policy]
