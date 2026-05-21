@@ -9,43 +9,39 @@ import httpx
 from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
 
-from src.domain.arap.skill_parser import parse_skill_frontmatter, validate_skill_schema
+from src.infrastructure.registry.skill_adapters import SkillAdapterRegistry, SkillProvenanceManifest, adapt_and_validate
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("SkillRegistry")
 
 
-def parse_skill_metadata(path: str) -> dict | None:
+def parse_skill_metadata(path: str, adapter_type: str | None = None, repo: str = "local") -> dict | None:
     skill_path = Path(path)
-    if skill_path.name != "SKILL.md":
+    if adapter_type is None and skill_path.name != "SKILL.md":
         logger.warning("Skipping non-SKILL file", extra={"skill_path": path})
         return None
 
-    try:
-        content = skill_path.read_text(encoding="utf-8")
-        frontmatter = parse_skill_frontmatter(content)
-        is_valid, errors = validate_skill_schema(frontmatter)
-        if not is_valid:
-            error_payload = {
-                "file_path": path,
-                "validation_errors": errors,
-            }
-            logger.error("Invalid SKILL.md schema", extra=error_payload)
-            return {"error": error_payload}
-
-        return {
-            "name": frontmatter["name"],
-            "version": frontmatter["version"],
-            "description": frontmatter["description"],
-            "path": path,
-        }
-    except Exception as exc:
+    adapters = SkillAdapterRegistry()
+    provenance = SkillProvenanceManifest()
+    result = adapt_and_validate({"path": path, "adapter_type": adapter_type, "repo": repo}, adapters, provenance)
+    if not result.accepted or not result.canonical:
         error_payload = {
             "file_path": path,
-            "validation_errors": [str(exc)],
+            "validation_errors": result.diagnostics,
+            "adapter_type": result.adapter_type,
+            "provenance": provenance.records[-1] if provenance.records else {},
         }
-        logger.error("Failed to parse SKILL.md", extra=error_payload)
+        logger.warning("Skill skipped due to adapter rejection", extra=error_payload)
         return {"error": error_payload}
+
+    return {
+        "name": result.canonical["name"],
+        "version": result.canonical["version"],
+        "description": result.canonical["description"],
+        "path": path,
+        "adapter_type": result.adapter_type,
+        "provenance": provenance.records[-1],
+    }
 
 
 class HiClawClient:

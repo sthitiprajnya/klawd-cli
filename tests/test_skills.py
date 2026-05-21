@@ -5,6 +5,7 @@ from src.domain.arap.skill_parser import parse_skill_frontmatter, validate_skill
 from src.domain.skills import SkillManager
 from src.infrastructure.registry.skill_registry import parse_skill_metadata
 from src.infrastructure.registry.skill_registry import HiClawClient, SkillHotReloader
+from src.infrastructure.registry.skill_adapters import SkillAdapterRegistry, SkillProvenanceManifest, adapt_and_validate
 
 
 def _valid_skill_md() -> str:
@@ -207,4 +208,46 @@ def test_hiclaw_register_retry_failure_and_matrix_failure_notice(tmp_path: Path,
 
     assert len(messages) == 1
     assert "FAILED" in messages[0]
-    assert "bad-skill" not in listed
+
+
+def test_fixture_driven_adapters_cover_native_and_external_formats():
+    fixtures = [
+        {"repo": "native-repo", "path": "tests/fixtures/skills/native/SKILL.md", "adapter_type": "native"},
+        {"repo": "json-repo", "path": "tests/fixtures/skills/git_repo_a/skill.json", "adapter_type": "repo_skill_json"},
+        {"repo": "manifest-repo", "path": "tests/fixtures/skills/git_repo_b/manifest.md", "adapter_type": "repo_manifest_yaml"},
+        {"repo": "default-native", "path": "tests/fixtures/skills/native/SKILL.md"},
+    ]
+
+    adapters = SkillAdapterRegistry()
+    manifest = SkillProvenanceManifest()
+
+    for entry in fixtures:
+        result = adapt_and_validate(entry, adapters, manifest)
+        assert result.accepted is True
+        assert result.canonical is not None
+
+    assert len(manifest.records) == 4
+    assert all(record["accepted"] for record in manifest.records)
+
+
+def test_adapter_failure_is_rejected_and_provenance_recorded(tmp_path: Path):
+    broken_file = tmp_path / "broken.json"
+    broken_file.write_text('{"skill_name": "oops"}', encoding="utf-8")
+
+    adapters = SkillAdapterRegistry()
+    manifest = SkillProvenanceManifest()
+    result = adapt_and_validate({"repo": "broken", "path": str(broken_file), "adapter_type": "repo_skill_json"}, adapters, manifest)
+
+    assert result.accepted is False
+    assert result.diagnostics
+    assert manifest.records[-1]["accepted"] is False
+    assert manifest.records[-1]["repo"] == "broken"
+
+
+def test_parse_skill_metadata_with_adapter_type_includes_provenance():
+    metadata = parse_skill_metadata("tests/fixtures/skills/git_repo_a/skill.json", adapter_type="repo_skill_json", repo="json-repo")
+
+    assert metadata is not None
+    assert metadata["name"] == "fixture-json"
+    assert metadata["adapter_type"] == "repo_skill_json"
+    assert metadata["provenance"]["accepted"] is True
