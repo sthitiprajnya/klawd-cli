@@ -154,10 +154,93 @@ def h7_scan(content: str, wing: str, agent_role: str) -> PRISMVerdict:
 
 
 def h8_scan(skill_md: str, artifact: dict | None) -> PRISMVerdict:
+    banned_patterns = [
+        ("SKILL-POL-001", r"\bcredential(s)?\s+theft\b"),
+        ("SKILL-POL-002", r"\bsteal(ing)?\s+(passwords?|tokens?|credentials?)\b"),
+        ("SKILL-POL-003", r"\bc2\b|\bcommand[- ]and[- ]control\b"),
+        ("SKILL-POL-004", r"\bpersistence\b.*\b(malware|trojan|backdoor|rootkit)\b"),
+        ("SKILL-POL-005", r"\bexploit(ation|ing)?\b"),
+        ("SKILL-POL-006", r"\bransomware\b|\bkeylogger\b"),
+    ]
+
     if not skill_md.strip():
         return _mk_verdict(hook=HookPoint.H8_SKILL_REGISTRATION, allow=False, reason=HookReason.EMPTY_SKILL_DEFINITION)
-    if not artifact or not artifact.get("source"):
+
+    source = artifact.get("source") if artifact else None
+    if not source:
         return _mk_verdict(hook=HookPoint.H8_SKILL_REGISTRATION, allow=False, reason=HookReason.MISSING_ARTIFACT_SOURCE)
+    if not isinstance(source, dict):
+        return _mk_verdict(
+            hook=HookPoint.H8_SKILL_REGISTRATION,
+            allow=False,
+            reason=HookReason.INVALID_ARTIFACT_PROVENANCE,
+            evidence=["source:type_invalid"],
+        )
+
+    repo_url = source.get("repository_url")
+    commit_sha = source.get("commit_sha")
+    if not repo_url or not isinstance(repo_url, str):
+        return _mk_verdict(
+            hook=HookPoint.H8_SKILL_REGISTRATION,
+            allow=False,
+            reason=HookReason.INVALID_ARTIFACT_PROVENANCE,
+            evidence=["source:missing_repository_url"],
+        )
+    if not re.match(r"^[0-9a-f]{40}$", str(commit_sha or ""), re.IGNORECASE):
+        return _mk_verdict(
+            hook=HookPoint.H8_SKILL_REGISTRATION,
+            allow=False,
+            reason=HookReason.INVALID_ARTIFACT_PROVENANCE,
+            evidence=["source:missing_or_invalid_commit_sha"],
+        )
+
+    metadata = artifact.get("metadata", {}) if artifact else {}
+    if not isinstance(metadata, dict):
+        metadata = {}
+
+    matches: list[str] = []
+    for rule_id, pattern in banned_patterns:
+        if re.search(pattern, skill_md, re.IGNORECASE):
+            matches.append(rule_id)
+
+    if matches:
+        high_risk_rule_ids = {"SKILL-POL-001", "SKILL-POL-002", "SKILL-POL-003", "SKILL-POL-004", "SKILL-POL-006"}
+        high_risk_matches = [rule_id for rule_id in matches if rule_id in high_risk_rule_ids]
+        if high_risk_matches:
+            return _mk_verdict(
+                hook=HookPoint.H8_SKILL_REGISTRATION,
+                allow=False,
+                reason=HookReason.SKILL_POLICY_VIOLATION,
+                severity=HookSeverity.CRITICAL,
+                evidence=high_risk_matches,
+            )
+
+        security_scope = str(metadata.get("security_scope", "")).lower()
+        defensive_scopes = {"defensive", "educational", "defensive_educational"}
+        if security_scope not in defensive_scopes:
+            return _mk_verdict(
+                hook=HookPoint.H8_SKILL_REGISTRATION,
+                allow=False,
+                reason=HookReason.SECURITY_CONTEXT_REQUIRED,
+                severity=HookSeverity.WARNING,
+                evidence=matches,
+            )
+
+        offensive_only_patterns = [
+            ("SKILL-POL-007", r"\bsteal(ing)?\b"),
+            ("SKILL-POL-008", r"\bdeploy\b.*\b(malware|ransomware|keylogger)\b"),
+            ("SKILL-POL-009", r"\bestablish\b.*\bc2\b"),
+        ]
+        offensive_matches = [rule_id for rule_id, pattern in offensive_only_patterns if re.search(pattern, skill_md, re.IGNORECASE)]
+        if offensive_matches:
+            return _mk_verdict(
+                hook=HookPoint.H8_SKILL_REGISTRATION,
+                allow=False,
+                reason=HookReason.SKILL_POLICY_VIOLATION,
+                severity=HookSeverity.CRITICAL,
+                evidence=offensive_matches,
+            )
+
     return _mk_verdict(hook=HookPoint.H8_SKILL_REGISTRATION, allow=True, reason=HookReason.CLEAN)
 
 
