@@ -253,6 +253,7 @@ def test_parse_skill_metadata_with_adapter_type_includes_provenance():
     assert metadata["provenance"]["accepted"] is True
 
 
+
 def test_external_ingestion_requires_pinned_sha(monkeypatch):
     from src.infrastructure.registry.external_skill_ingestion import ExternalSkillIngestionError, ingest_external_skill_sources
 

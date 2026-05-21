@@ -1,8 +1,13 @@
+from __future__ import annotations
+from __future__ import annotations
+from __future__ import annotations
 from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, UniqueConstraint
 from sqlalchemy.orm import declarative_base, sessionmaker
 import datetime
 
-DATABASE_URL = "sqlite:///jobs.db"
+import os
+
+DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///jobs.db")
 
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

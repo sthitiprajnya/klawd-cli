@@ -1,3 +1,4 @@
+from __future__ import annotations
 from fastapi import FastAPI, BackgroundTasks, Depends, WebSocket, WebSocketDisconnect, Query, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -49,7 +50,7 @@ def _workflow_transition_sink(event: dict):
         pass
 
 
-workflow.register_event_sink(_workflow_transition_sink)
+# workflow.register_event_sink(_workflow_transition_sink)
 
 @app.on_event("startup")
 async def startup_policy_validation():

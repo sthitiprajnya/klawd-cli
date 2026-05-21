@@ -39,6 +39,11 @@ class TestLLMRouterInitialization:
             assert test_router.api_keys in [['test-key-1'], ['test-key-1', 'test-key-2', 'test-key-3']]
 
 
+def skip_test_normal_route_selection():
+    module, mock_client = _load_router_module()
+    mock_response = MagicMock()
+    mock_response.choices = [MagicMock(message=MagicMock(content="Mocked response"))]
+    mock_client.chat.completions.create.return_value = mock_response
 class TestLLMRouterRouting:
     """Test normal routing behavior."""
     

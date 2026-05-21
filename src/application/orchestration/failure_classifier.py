@@ -104,7 +104,7 @@ def handle_failure(error_message: str, *, max_self_heal_attempts: int = MAX_SELF
     attempts = max(_extract_attempts(error_message), _LOGIC_CLUSTER_COUNTS[sig]) + 1
 
     if _LOGIC_CLUSTER_COUNTS[sig] <= max_self_heal_attempts:
-        enter_self_healing_loop(error_message, attempts=attempts)
+        enter_self_healing_loop(error_message)
         return
 
     if sig not in _LOGIC_ESCALATED:

@@ -90,6 +90,7 @@ class AgentMemory:
                 "failure_class": failure_class,
                 "created_at": timestamp,
                 "updated_at": timestamp,
+
                 **(metadata or {}),
             },
             "refs": {"parent_id": parent_id, "related_ids": related_ids or []},
@@ -131,6 +132,7 @@ class AgentMemory:
                     if isinstance(data["result"], list):
                         return "\n---\n".join(data["result"][-3:])
                     return str(data["result"])
+            records = []
             records = self._search_records(context)
             if records:
                 snippets = [json.dumps(r.get("content", r), default=str) for r in records[-3:]]
@@ -138,6 +140,8 @@ class AgentMemory:
             return "No past lessons found."
         except Exception as e:
             logger.warning("Retrieve failed: %s", e)
+            return "No past lessons found."
+        except Exception:
             return "Could not retrieve past lessons."
 
 

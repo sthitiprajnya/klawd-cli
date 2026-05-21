@@ -108,7 +108,7 @@ class OmniWorkflow:
             return "Blocked", "", inbound_verdict.reason
 
         lessons = agent_memory.retrieve_lessons(context=task, top_k=settings.mempalace_semantic_top_k)
-        context = f"Prior Lessons:\n{lessons[:settings.mempalace_semantic_max_chars]}"
+        context = f"Prior Lessons:\n{lessons[:settings.mempalace_semantic_max_chars] if lessons else ''}"
 
         oh_ctx = self._build_openhuman_context(task, "plan")
         plan = self.planner.create_plan(f"Task: {task}\nContext: {context}", openhuman_context=asdict(oh_ctx))
