@@ -1,7 +1,7 @@
 import logging
 import os
 import time
-from abc import ABC, abstractmethod
+from abc import ABC
 from typing import Any, TypedDict
 
 import httpx
