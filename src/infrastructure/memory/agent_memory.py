@@ -90,7 +90,6 @@ class AgentMemory:
                 "failure_class": failure_class,
                 "created_at": timestamp,
                 "updated_at": timestamp,
-                **meta,
                 **(metadata or {}),
             },
             "refs": {"parent_id": parent_id, "related_ids": related_ids or []},
@@ -122,6 +121,7 @@ class AgentMemory:
         return parsed
 
     def retrieve_lessons(self, context: str, top_k: int = 3) -> str:
+        records = []
         try:
             payload = {"jsonrpc": "2.0", "method": "retrieve_lessons", "params": {"context": context, "top_k": top_k}, "id": 1}
             response = httpx.post(self.base_url, json=payload, timeout=2.0)

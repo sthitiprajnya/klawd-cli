@@ -39,6 +39,7 @@ class ConnectionManager:
         for connection in self.active_connections:
             await connection.send_json(message)
 
+manager = ConnectionManager()
 
 
 def _workflow_transition_sink(event: dict):
@@ -205,7 +206,7 @@ async def health(db: Session = Depends(get_db)):
 
 @app.get("/api/v1/memory/search", response_model=MemorySearchResponse)
 async def memory_search(q: str):
-    return MemorySearchResponse(query=q, results=agent_memory.retrieve_lessons(q))
+    return MemorySearchResponse(query=q, results=[agent_memory.retrieve_lessons(q)])
 
 
 @app.get("/api/v1/skills", response_model=SkillsResponse)

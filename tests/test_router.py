@@ -138,6 +138,7 @@ def test_fallback_on_provider_failure():
     test_router.clients = [mock_client]
 
     res = test_router.route("Implement feature", task_type="coding", job_id="job-2")
+    assert res.startswith("Error: all model routes failed after failover attempts")
     assert res == "Error: all model routes failed after failover attempts"
     assert res.startswith("Error: all model routes failed")
 
