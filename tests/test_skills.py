@@ -251,3 +251,25 @@ def test_parse_skill_metadata_with_adapter_type_includes_provenance():
     assert metadata["name"] == "fixture-json"
     assert metadata["adapter_type"] == "repo_skill_json"
     assert metadata["provenance"]["accepted"] is True
+    assert "bad-skill" not in listed
+
+
+def test_external_ingestion_requires_pinned_sha(monkeypatch):
+    from src.infrastructure.registry.external_skill_ingestion import ExternalSkillIngestionError, ingest_external_skill_sources
+
+    monkeypatch.setattr("src.infrastructure.registry.external_skill_ingestion.EXTERNAL_SKILL_SOURCES", [])
+    # No configured sources should be a no-op.
+    assert ingest_external_skill_sources() == []
+
+    from src.settings import ExternalSkillSource
+
+    monkeypatch.setattr(
+        "src.infrastructure.registry.external_skill_ingestion.EXTERNAL_SKILL_SOURCES",
+        [ExternalSkillSource(name="cyberstrike", repo_url="https://example.com/repo.git", pinned_ref="main", enabled=True)],
+    )
+
+    try:
+        ingest_external_skill_sources()
+        assert False, "expected ExternalSkillIngestionError"
+    except ExternalSkillIngestionError as exc:
+        assert "pinned commit SHA" in str(exc)
