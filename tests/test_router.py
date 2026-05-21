@@ -138,11 +138,16 @@ def test_fallback_on_provider_failure():
     test_router.clients = [mock_client]
 
     res = test_router.route("Implement feature", task_type="coding", job_id="job-2")
+    assert res == "Error: all model routes failed after failover attempts"
     assert res.startswith("Error: all model routes failed")
 
 
 def test_degraded_provider_bypass():
     sys.modules["redis"] = SimpleNamespace(Redis=MagicMock(return_value=MagicMock()))
+    mock_post_response = MagicMock()
+    mock_post_response.status_code = 200
+    mock_post_response.json.return_value = {"providers": [{"api_key": "k1", "available": False}, {"api_key": "k2", "available": True}]}
+    sys.modules["httpx"] = SimpleNamespace(post=MagicMock(return_value=mock_post_response), TimeoutException=Exception, HTTPError=Exception)
     sys.modules["httpx"] = SimpleNamespace(put=MagicMock(), post=MagicMock())
     from src.infrastructure.llm import thread_parker
 
@@ -161,6 +166,21 @@ def test_degraded_provider_bypass():
         parker = thread_parker.ThreadParker()
         assert parker._find_available_key("nim-coder") == "k2"
 
+
+def test_failover_success_on_subsequent_client():
+    module, mock_client1 = _load_router_module()
+    _, mock_client2 = _load_router_module()
+
+    mock_client1.chat.completions.create.side_effect = Exception("provider 1 unavailable")
+    mock_response = MagicMock()
+    mock_response.choices = [MagicMock(message=MagicMock(content="Success on provider 2"))]
+    mock_client2.chat.completions.create.return_value = mock_response
+
+    test_router = module.LLMRouter()
+    test_router.clients = [mock_client1, mock_client2]
+
+    res = test_router.route("Implement feature", task_type="coding", job_id="job-3")
+    assert res == "Success on provider 2"
 class TestLLMRouterPromptUpgrade:
     """Test prompt length-based model upgrading."""
     
