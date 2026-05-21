@@ -1,3 +1,4 @@
+import hashlib
 import json
 import logging
 from datetime import datetime, timezone
@@ -12,22 +13,35 @@ class AgentMemory:
     def __init__(self, index_name: str = "src_memory"):
         self.index_name = index_name
         self.base_url = "http://agentmemory:3111"
-        logger.info(f"Initializing Memory manager connecting to JSON-RPC at {self.base_url}.")
+        logger.info("Initializing Memory manager connecting to JSON-RPC at %s.", self.base_url)
 
-    def store_outcome(self, task: str, result: str, feedback: str, metadata: dict | None = None):
-        """Stores the result of a task and any feedback for future reference."""
-        try:
-            payload = {
-                "jsonrpc": "2.0",
-                "method": "store_outcome",
-                "params": {"task": task, "result": result, "feedback": feedback, "metadata": metadata or {}},
-                "id": 1
-            }
-            httpx.post(self.base_url, json=payload, timeout=2.0)
-            logger.info("Successfully stored task outcome in Memory.")
     @staticmethod
     def _utc_now_iso() -> str:
         return datetime.now(timezone.utc).isoformat()
+
+    @staticmethod
+    def _build_idempotency_key(
+        *,
+        task: str,
+        result: str,
+        feedback: str,
+        metadata: dict[str, Any],
+        job_id: str | None,
+        status: str,
+        failure_class: str,
+    ) -> str:
+        canonical = {
+            "job_id": job_id or metadata.get("job_id"),
+            "task": task,
+            "result": result,
+            "feedback": feedback,
+            "status": status,
+            "failure_class": failure_class,
+            "layer": metadata.get("layer", "unknown"),
+            "domain": metadata.get("domain", "unknown"),
+        }
+        digest = hashlib.sha256(json.dumps(canonical, sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()
+        return f"mem_{digest[:24]}"
 
     def _store_record(self, record: dict[str, Any]) -> None:
         payload = {
@@ -43,6 +57,7 @@ class AgentMemory:
         task: str,
         result: str,
         feedback: str,
+        metadata: dict[str, Any] | None = None,
         *,
         job_id: str | None = None,
         agent: str = "workflow",
@@ -51,8 +66,23 @@ class AgentMemory:
         parent_id: str | None = None,
         related_ids: list[str] | None = None,
     ) -> str:
-        """Stores workflow outcome using a unified record schema."""
-        record_id = f"mem_{int(datetime.now(timezone.utc).timestamp() * 1000000)}"
+        """Stores workflow outcome using a unified record schema.
+
+        Supports legacy `metadata` callers while also enabling structured fields.
+        """
+        meta = dict(metadata or {})
+        if job_id is None:
+            job_id = meta.get("job_id")
+
+        record_id = self._build_idempotency_key(
+            task=task,
+            result=result,
+            feedback=feedback,
+            metadata=meta,
+            job_id=job_id,
+            status=status,
+            failure_class=failure_class,
+        )
         timestamp = self._utc_now_iso()
         record = {
             "id": record_id,
@@ -69,6 +99,7 @@ class AgentMemory:
                 "failure_class": failure_class,
                 "created_at": timestamp,
                 "updated_at": timestamp,
+                **meta,
             },
             "refs": {
                 "parent_id": parent_id,
@@ -78,9 +109,9 @@ class AgentMemory:
 
         try:
             self._store_record(record)
-            logger.info("Successfully stored unified memory record.")
+            logger.info("Stored unified memory record with idempotency key %s.", record_id)
         except Exception as e:
-            logger.error(f"Failed to store memory: {e}")
+            logger.error("Failed to store memory: %s", e)
         return record_id
 
     def _search_records(self, query: str) -> list[dict[str, Any]]:
@@ -131,7 +162,7 @@ class AgentMemory:
                 return "\n---\n".join(snippets)
             return "No past lessons found."
         except Exception as e:
-            logger.warning(f"Retrieve failed: {e}")
+            logger.warning("Retrieve failed: %s", e)
             return "Could not retrieve past lessons."
 
     def last_failures_by_class(self, failure_class: str, limit: int = 5) -> list[dict[str, Any]]:
