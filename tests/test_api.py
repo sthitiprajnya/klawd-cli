@@ -5,6 +5,8 @@ from sqlalchemy.orm import sessionmaker
 
 from src.presentation.api.main import app
 from src.infrastructure.database import Base, get_db
+from src.infrastructure.provenance import repo_provenance_store, ProvenanceRecord
+import datetime
 
 SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
 engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
@@ -82,3 +84,55 @@ def test_frontend_loads():
 def test_websocket():
     with client.websocket_connect("/ws/jobs") as websocket:
         assert websocket is not None
+
+
+def test_skills_provenance_payload_shape_and_denied_visibility():
+    db = TestingSessionLocal()
+    try:
+        repo_provenance_store.write_record_atomic(
+            db,
+            ProvenanceRecord(
+                repo_url="https://github.com/example/allowed",
+                pinned_sha="abc123",
+                ingest_timestamp=datetime.datetime.utcnow(),
+                discovered_skills=[{"name": "tooling", "version": "1.0.0"}],
+                validation_status="valid",
+                policy_decision="allow",
+                policy_reason="meets_relevance_threshold",
+            ),
+        )
+        repo_provenance_store.write_record_atomic(
+            db,
+            ProvenanceRecord(
+                repo_url="https://github.com/example/denied",
+                pinned_sha="def456",
+                ingest_timestamp=datetime.datetime.utcnow(),
+                discovered_skills=[],
+                validation_status="invalid",
+                policy_decision="deny",
+                policy_reason="malware_signature_detected",
+            ),
+        )
+    finally:
+        db.close()
+
+    response = client.get("/api/v1/skills/provenance")
+    assert response.status_code == 200
+    body = response.json()
+    assert "records" in body
+    assert len(body["records"]) == 2
+
+    denied = [r for r in body["records"] if r["policy_decision"] == "deny"]
+    assert len(denied) == 1
+    assert denied[0]["policy_reason"] == "malware_signature_detected"
+
+    required_fields = {
+        "repo_url",
+        "pinned_sha",
+        "ingest_timestamp",
+        "discovered_skills",
+        "validation_status",
+        "policy_decision",
+        "policy_reason",
+    }
+    assert required_fields.issubset(set(body["records"][0].keys()))

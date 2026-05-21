@@ -1,7 +1,10 @@
 import schedule, time, httpx
 import uuid
 import logging
+import datetime
 from sentence_transformers import SentenceTransformer, util
+from src.infrastructure.database import SessionLocal
+from src.infrastructure.provenance import ProvenanceRecord, repo_provenance_store
 
 logger = logging.getLogger("CompetitiveCron")
 model = SentenceTransformer("all-mpnet-base-v2")
@@ -42,8 +45,28 @@ def competitive_absorption_run():
     for repo in repos:
         url = repo["html_url"]
         relevance = compute_relevance(repo)
+        pinned_sha = repo.get("default_branch", "unknown")
+        policy_decision = "allow" if relevance >= ABSORPTION_THRESHOLD else "deny"
+        policy_reason = "meets_relevance_threshold" if policy_decision == "allow" else "below_relevance_threshold"
 
-        if url not in str(already_absorbed) and relevance >= ABSORPTION_THRESHOLD:
+        db = SessionLocal()
+        try:
+            repo_provenance_store.write_record_atomic(
+                db,
+                ProvenanceRecord(
+                    repo_url=url,
+                    pinned_sha=pinned_sha,
+                    ingest_timestamp=datetime.datetime.utcnow(),
+                    discovered_skills=[],
+                    validation_status="pending_discovery",
+                    policy_decision=policy_decision,
+                    policy_reason=policy_reason,
+                ),
+            )
+        finally:
+            db.close()
+
+        if url not in str(already_absorbed) and policy_decision == "allow":
             try:
                 # Send payload directly to FastAPI job queue
                 httpx.post("http://localhost:8000/api/v1/jobs", json={"task": f"absorb {url}"})

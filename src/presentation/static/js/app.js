@@ -29,11 +29,13 @@ function renderJobs(jobs) {
 
 async function fetchData() {
     try {
-        const [jobsRes, skillsRes] = await Promise.all([fetch('/api/v1/jobs'), fetch('/api/v1/skills')]);
+        const [jobsRes, skillsRes, provenanceRes] = await Promise.all([fetch('/api/v1/jobs'), fetch('/api/v1/skills'), fetch('/api/v1/skills/provenance')]);
         const jobsPayload = await jobsRes.json();
         const skills = await skillsRes.json();
+        const provenance = await provenanceRes.json();
         renderJobs(jobsPayload.jobs || []);
         document.getElementById('skills-container').textContent = JSON.stringify(skills.skills, null, 2);
+        document.getElementById('provenance-container').textContent = JSON.stringify((provenance.records || []).slice(0, 5), null, 2);
     } catch (err) {
         console.error('Failed to fetch dashboard data', err);
     }

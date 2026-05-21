@@ -16,6 +16,7 @@ from src.application.workflows import workflow
 from src.domain.skills import skill_manager
 from src.infrastructure.memory.agent_memory import agent_memory
 from src.infrastructure.security.execution_adapter import execution_adapter, PolicyRejectionError
+from src.infrastructure.provenance import repo_provenance_store
 
 logger = logging.getLogger("EnterpriseAPI")
 app = FastAPI(title="OmniAgent DDD API", version="2.0.0")
@@ -111,6 +112,20 @@ class SkillsResponse(BaseModel):
     skills: list[str]
 
 
+class RepoProvenanceResponse(BaseModel):
+    repo_url: str
+    pinned_sha: str
+    ingest_timestamp: datetime.datetime
+    discovered_skills: list[dict[str, str]]
+    validation_status: str
+    policy_decision: str
+    policy_reason: str
+
+
+class RepoProvenanceListResponse(BaseModel):
+    records: list[RepoProvenanceResponse]
+
+
 class JobUpdateFrame(BaseModel):
     type: Literal["job_update"]
     job_id: str
@@ -196,6 +211,12 @@ async def memory_search(q: str):
 @app.get("/api/v1/skills", response_model=SkillsResponse)
 async def get_skills():
     return SkillsResponse(skills=skill_manager.list_skills())
+
+
+@app.get("/api/v1/skills/provenance", response_model=RepoProvenanceListResponse)
+async def get_skills_provenance(db: Session = Depends(get_db)):
+    records = repo_provenance_store.list_records(db)
+    return RepoProvenanceListResponse(records=[RepoProvenanceResponse(**r.__dict__) for r in records])
 
 
 def execute_job(job_id: str, task: str):
