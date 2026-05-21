@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime
+from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, UniqueConstraint
 from sqlalchemy.orm import declarative_base, sessionmaker
 import datetime
 
@@ -30,6 +30,20 @@ class JobEntry(Base):
     started_at = Column(DateTime, nullable=True)
     completed_at = Column(DateTime, nullable=True)
     error = Column(Text, nullable=True)
+
+
+class RepoProvenanceEntry(Base):
+    __tablename__ = "repo_provenance"
+    __table_args__ = (UniqueConstraint("repo_url", name="uq_repo_provenance_repo_url"),)
+
+    id = Column(String, primary_key=True, index=True)
+    repo_url = Column(Text, nullable=False, index=True)
+    pinned_sha = Column(String, nullable=False)
+    ingest_timestamp = Column(DateTime, nullable=False, default=datetime.datetime.utcnow)
+    discovered_skills = Column(Text, nullable=False, default="[]")
+    validation_status = Column(String, nullable=False, default="unknown")
+    policy_decision = Column(String, nullable=False, default="deny")
+    policy_reason = Column(String, nullable=False, default="unspecified")
 
 
 Base.metadata.create_all(bind=engine)
