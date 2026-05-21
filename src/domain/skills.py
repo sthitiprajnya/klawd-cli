@@ -20,7 +20,12 @@ class SkillManager:
     def discover_skill_files(self) -> list[Path]:
         return sorted(Path(self.skills_dir).rglob("SKILL.md"))
 
-    def refresh_skills(self) -> None:
+    def refresh_skills(self, include_external: bool = True) -> None:
+        if include_external:
+            from src.application.ingestion.service import ingest_external_skills_into_manager
+
+            ingest_external_skills_into_manager(self)
+
         discovered: dict[str, dict] = {}
         try:
             ingest_external_skill_sources()
