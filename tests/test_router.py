@@ -144,12 +144,37 @@ def test_fallback_on_provider_failure():
 
     res = test_router.route("Implement feature", task_type="coding", job_id="job-2")
     assert res.startswith("Error: all model routes failed after failover attempts")
+
+
+def test_route_prompt_length_fallback():
+    module, mock_client = _load_router_module()
+    mock_response = MagicMock()
+    mock_response.choices = [MagicMock(message=MagicMock(content="Mocked complex response"))]
+    mock_client.chat.completions.create.return_value = mock_response
+
+    test_router = module.LLMRouter()
+    test_router.client = mock_client
+
+    long_prompt = "A" * 8001
+    res = test_router.route(long_prompt, task_type="coding", job_id="job-3", token_budget=2048)
+
+    assert res == "Mocked complex response"
+    mock_client.chat.completions.create.assert_called_with(
+        model="nim-architect",
+        messages=[{"role": "user", "content": long_prompt}],
+        temperature=0.2,
+        max_tokens=2048,
+        extra_body={"metadata": {"task_type": "complex", "job_id": "job-3", "token_budget": 2048, "prompt_chars": 8001, "api_key_pool_size": 1}},
+    )
     assert res == "Error: all model routes failed after failover attempts"
     assert res.startswith("Error: all model routes failed")
 
 
 def test_degraded_provider_bypass():
     sys.modules["redis"] = SimpleNamespace(Redis=MagicMock(return_value=MagicMock()))
+    mock_post = MagicMock()
+    mock_post.return_value = MagicMock(status_code=200, json=lambda: {"providers": [{"api_key": "k1", "available": False}, {"api_key": "k2", "available": True}]})
+    sys.modules["httpx"] = SimpleNamespace(put=MagicMock(), post=mock_post, TimeoutException=Exception, HTTPError=Exception)
     mock_post_response = MagicMock()
     mock_post_response.status_code = 200
     mock_post_response.json.return_value = {"providers": [{"api_key": "k1", "available": False}, {"api_key": "k2", "available": True}]}
