@@ -133,3 +133,31 @@ services:
       context: ./rust-workers
     environment:
       - PORT=8083
+
+  hexstrike-server:
+    image: kalilinux/kali-rolling:latest
+    command: ["python3", "/app/hexstrike_server.py"]
+    expose: ["8888"]
+    environment:
+      - HEXSTRIKE_VALIDATE_COMMANDS=true
+      - HEXSTRIKE_REQUIRE_API_KEY=true
+      - HEXSTRIKE_RATE_LIMIT=true
+    volumes:
+      - ./hexstrike/hexstrike_server.py:/app/hexstrike_server.py:ro
+    networks: [security-internal]
+
+  cyberstrike-bolt:
+    image: cyberstrikeus/bolt:latest
+    expose: ["8888"]
+    environment:
+      - BOLT_ED25519_PUBLIC_KEY_FILE=/run/secrets/cyberstrike/ed25519.pub
+      - BOLT_ED25519_PRIVATE_KEY_FILE=/run/secrets/cyberstrike/ed25519
+      - BOLT_AUTH_MODE=ed25519
+      - BOLT_DISABLE_PASSWORD_AUTH=true
+    volumes:
+      - ./secrets/cyberstrike:/run/secrets/cyberstrike:ro
+    networks: [security-internal]
+
+networks:
+  security-internal:
+    internal: true
