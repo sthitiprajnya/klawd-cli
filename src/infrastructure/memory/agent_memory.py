@@ -10,8 +10,7 @@ logger = logging.getLogger("Memory")
 
 
 class AgentMemory:
-    def __init__(self, index_name: str = "src_memory"):
-        self.index_name = index_name
+    def __init__(self):
         self.base_url = "http://agentmemory:3111"
         logger.info("Initializing Memory manager connecting to JSON-RPC at %s.", self.base_url)
 
@@ -90,6 +89,7 @@ class AgentMemory:
                 "failure_class": failure_class,
                 "created_at": timestamp,
                 "updated_at": timestamp,
+                **meta,
 
                 **(metadata or {}),
             },
