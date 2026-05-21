@@ -26,7 +26,6 @@ def test_metrics_tagged_by_hook_and_reason_category():
 
 
 def test_hook_exception_is_fail_open_and_counted(monkeypatch):
-    from src.infrastructure import security
     from src.infrastructure.security import hooks_impl
 
     def boom(**kwargs):

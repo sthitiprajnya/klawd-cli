@@ -2,7 +2,7 @@ import typing
 import datetime as dt
 import hashlib
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Callable
 
 from src.application.prompt_registry import EvalInputContract, PromptVersionRegistry
 
@@ -21,6 +21,7 @@ class LearningCandidate:
 
 class HermesLearningCoordinator:
     def __init__(self, *, registry: PromptVersionRegistry, audit_logger: typing.Callable | None = None):
+    def __init__(self, *, registry: PromptVersionRegistry, audit_logger: Callable | None = None):
         self.registry = registry
         self.audit_logger = audit_logger or (lambda _event: None)
         self._seen_outcome_ids: set[str] = set()

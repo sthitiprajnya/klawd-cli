@@ -20,7 +20,7 @@ def test_bounded_self_heal_attempts(monkeypatch):
     failure_classifier._LOGIC_ESCALATED.clear()
     healed = []
     escalated = []
-    monkeypatch.setattr(failure_classifier, "enter_self_healing_loop", lambda msg: healed.append(msg))
+    monkeypatch.setattr(failure_classifier, "enter_self_healing_loop", lambda msg, **kwargs: healed.append(msg))
     monkeypatch.setattr(failure_classifier, "alert_human", lambda room, msg: escalated.append((room, msg)))
 
     for _ in range(5):
