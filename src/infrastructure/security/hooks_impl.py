@@ -66,7 +66,46 @@ def h1_scan(prompt: str) -> PRISMVerdict:
 ROLE_TOOL_ALLOWLIST = {
     "coder": {"bash", "read_file", "write_file", "run_tests", "git_diff", "git_commit"},
     "absorber": {"git_clone", "wget", "npm_pack", "mempalace_bulk_import", "semgrep", "osv_query"},
+    "auditor": {"nmap_wrapper", "nuclei_wrapper", "hexstrike_scan", "hexstrike_run", "hexstrike_exploit_runner", "hexstrike_db_extract"},
 }
+
+
+HEXSTRIKE_DESTRUCTIVE_PATTERNS = ("exploit", "db-extract", "db_extract", "destructive")
+HEXSTRIKE_CONFIRM_HEADER = "x-hexstrike-confirm-destructive"
+
+
+def _has_destructive_confirmation(params: dict[str, Any]) -> bool:
+    headers = params.get("headers") if isinstance(params, dict) else {}
+    flags = params.get("flags") if isinstance(params, dict) else {}
+
+    if isinstance(headers, dict):
+        for key, value in headers.items():
+            if str(key).lower() == HEXSTRIKE_CONFIRM_HEADER and str(value).strip().lower() in {"yes", "true", "1"}:
+                return True
+
+    if isinstance(flags, dict):
+        for key, value in flags.items():
+            if str(key).lower() in {"hexstrike_confirm_destructive", "x_hexstrike_confirm_destructive"} and str(value).strip().lower() in {"yes", "true", "1"}:
+                return True
+
+    return False
+
+
+def _is_hexstrike_destructive(tool_name: str, params: dict[str, Any]) -> bool:
+    name = tool_name.lower()
+    if "hexstrike" not in name:
+        return False
+
+    if any(p in name for p in HEXSTRIKE_DESTRUCTIVE_PATTERNS):
+        return True
+
+    capabilities = params.get("capability_tags") if isinstance(params, dict) else []
+    if isinstance(capabilities, (list, tuple, set)):
+        normalized = {str(tag).lower() for tag in capabilities}
+        if any(any(pattern in tag for pattern in HEXSTRIKE_DESTRUCTIVE_PATTERNS) for tag in normalized):
+            return True
+
+    return False
 
 
 def h2_scan(tool_name: str, agent_role: str, params: dict) -> PRISMVerdict:
@@ -78,6 +117,19 @@ def h2_scan(tool_name: str, agent_role: str, params: dict) -> PRISMVerdict:
             severity=HookSeverity.WARNING,
             evidence=[tool_name, agent_role],
         )
+    if _is_hexstrike_destructive(tool_name, params) and not _has_destructive_confirmation(params):
+        return _mk_verdict(
+            hook=HookPoint.H2_TOOL_REQUESTED,
+            allow=False,
+            reason="destructive_confirmation_missing",
+            severity=HookSeverity.CRITICAL,
+            evidence=[
+                f"tool:{tool_name}",
+                "family:hexstrike",
+                "require_header:X-Hexstrike-Confirm-Destructive=yes",
+            ],
+        )
+
     if tool_name == "bash" and any(d in params.get("command", "") for d in ["rm -rf /", "chmod 777"]):
         return _mk_verdict(
             hook=HookPoint.H2_TOOL_REQUESTED,
