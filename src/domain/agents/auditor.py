@@ -1,3 +1,4 @@
+from __future__ import annotations
 from .base import BaseAgent
 
 AUDITOR_PROMPT = """You are Delta, a benign code auditor.
@@ -16,7 +17,6 @@ class AuditorAgent(BaseAgent):
         if openhuman_context:
             prompt += f"\n\nOpenHuman Context: {openhuman_context}"
         return self.process(prompt, task_type="complex").strip()
-from __future__ import annotations
 
 from src.settings import EXTERNAL_SKILL_SOURCES
 
