@@ -109,4 +109,4 @@ class BaseAgent(ABC):
 
         full_prompt = f"System: {full_system_prompt}\n\nUser: {prompt}"
         execution_adapter.execute(prompt=full_prompt, task_type=task_type, command=prompt)
-        return llm_router.route(full_prompt, task_type=task_type)
+        return llm_router.route(prompt, task_type=task_type, system_prompt=full_system_prompt)
