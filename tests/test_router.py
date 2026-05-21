@@ -25,7 +25,7 @@ def test_normal_route_selection():
     mock_client.chat.completions.create.return_value = mock_response
 
     test_router = module.LLMRouter()
-    test_router.client = mock_client
+    test_router.clients = [mock_client]
     res_fast = test_router.route("Help", task_type="fast", job_id="job-1", token_budget=1024)
 
     assert res_fast == "Mocked response"
@@ -34,7 +34,7 @@ def test_normal_route_selection():
         messages=[{"role": "user", "content": "Help"}],
         temperature=0.2,
         max_tokens=1024,
-        extra_body={"metadata": {"task_type": "fast", "job_id": "job-1", "token_budget": 1024, "prompt_chars": 4}},
+        extra_body={"metadata": {"task_type": "fast", "job_id": "job-1", "token_budget": 1024, "prompt_chars": 4, "api_key_pool_size": 1}},
     )
 
 
@@ -42,15 +42,18 @@ def test_fallback_on_provider_failure():
     module, mock_client = _load_router_module()
     mock_client.chat.completions.create.side_effect = Exception("provider unavailable")
     test_router = module.LLMRouter()
-    test_router.client = mock_client
+    test_router.clients = [mock_client]
 
     res = test_router.route("Implement feature", task_type="coding", job_id="job-2")
-    assert res.startswith("Error: provider unavailable")
+    assert res == "Error: all model routes failed after failover attempts"
 
 
 def test_degraded_provider_bypass():
     sys.modules["redis"] = SimpleNamespace(Redis=MagicMock(return_value=MagicMock()))
-    sys.modules["httpx"] = SimpleNamespace(put=MagicMock())
+    mock_post_response = MagicMock()
+    mock_post_response.status_code = 200
+    mock_post_response.json.return_value = {"providers": [{"api_key": "k1", "available": False}, {"api_key": "k2", "available": True}]}
+    sys.modules["httpx"] = SimpleNamespace(post=MagicMock(return_value=mock_post_response), TimeoutException=Exception, HTTPError=Exception)
     from src.infrastructure.llm import thread_parker
 
     with patch.object(thread_parker, "get_all_configured_keys", return_value=["k1", "k2"]), \
@@ -58,3 +61,19 @@ def test_degraded_provider_bypass():
         mock_redis.exists.side_effect = lambda key: key.endswith(":k1")
         parker = thread_parker.ThreadParker()
         assert parker._find_available_key("nim-coder") == "k2"
+
+
+def test_failover_success_on_subsequent_client():
+    module, mock_client1 = _load_router_module()
+    _, mock_client2 = _load_router_module()
+
+    mock_client1.chat.completions.create.side_effect = Exception("provider 1 unavailable")
+    mock_response = MagicMock()
+    mock_response.choices = [MagicMock(message=MagicMock(content="Success on provider 2"))]
+    mock_client2.chat.completions.create.return_value = mock_response
+
+    test_router = module.LLMRouter()
+    test_router.clients = [mock_client1, mock_client2]
+
+    res = test_router.route("Implement feature", task_type="coding", job_id="job-3")
+    assert res == "Success on provider 2"
