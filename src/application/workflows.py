@@ -5,7 +5,7 @@ import subprocess
 import time
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Callable
 
 from src.application.orchestration.failure_classifier import classify_failure
 from src.domain.agents import AbsorberAgent, AuditorAgent, EngineerAgent, PlannerAgent, ReviewerAgent
@@ -55,6 +55,10 @@ class OmniWorkflow:
         self.auditor = AuditorAgent()
         self.absorber = AbsorberAgent()
         self.max_iterations = 3
+        self.event_sinks = []
+
+    def register_event_sink(self, sink: Callable[[dict[str, Any]], None]):
+        self.event_sinks.append(sink)
 
     def _run_cyberstrike_bolt_checks(self, code_artifact: str) -> list[dict[str, Any]]:
         try:
