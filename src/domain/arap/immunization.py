@@ -1,7 +1,8 @@
 import subprocess, httpx, json
 from pathlib import Path
 from dataclasses import dataclass, field
-from openai import OpenAI
+
+from src.infrastructure.llm_router import llm_router
 
 @dataclass
 class ThreatResult:
@@ -26,12 +27,8 @@ def parse_semgrep_output(stdout: bytes) -> list[dict]:
 class ImmunizationFilter:
     OSV_API = "https://api.osv.dev/v1/query"
 
-    def __init__(self):
-        self.llm_client = OpenAI(
-            api_key="internal-proxy-key",
-            base_url="http://litellm-proxy:4000/v1"
-        )
-        self.model = "nim-architect"
+    def __init__(self, router=None):
+        self.router = router or llm_router
 
     def run(self, absorption_artifact: dict) -> ImmunizationReport:
         report = ImmunizationReport(artifact=absorption_artifact)
@@ -45,17 +42,17 @@ class ImmunizationFilter:
     def _llm_evaluate(self, prompt: str, category: str) -> ThreatResult:
         sys_prompt = "You are a strict security auditor. Evaluate the text for threats. Return ONLY a JSON object: {\"blocked\": true|false, \"reason\": \"explanation\"}."
         try:
-            response = self.llm_client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": sys_prompt},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.0
+            full_prompt = f"{sys_prompt}\n\n{prompt}"
+            content = self.router.route(
+                prompt=full_prompt,
+                task_type="complex",
+                job_id=f"immunization-{category}"
             )
-            content = response.choices[0].message.content
+
             if content.startswith("```json"):
                 content = content.replace("```json", "").replace("```", "").strip()
+            elif content.startswith("```"):
+                content = content.replace("```", "").strip()
 
             result_dict = json.loads(content)
             return ThreatResult(
