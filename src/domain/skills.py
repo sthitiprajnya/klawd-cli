@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 
 from src.domain.arap.skill_parser import parse_skill_frontmatter, validate_skill_schema
+from src.infrastructure.registry.external_skill_ingestion import ExternalSkillIngestionError, ingest_external_skill_sources
 
 logger = logging.getLogger("SkillManager")
 
@@ -21,6 +22,12 @@ class SkillManager:
 
     def refresh_skills(self) -> None:
         discovered: dict[str, dict] = {}
+        try:
+            ingest_external_skill_sources()
+        except ExternalSkillIngestionError as exc:
+            logger.warning("External skill ingestion skipped", extra={"error": str(exc)})
+        except Exception as exc:
+            logger.error("External skill ingestion failed", extra={"error": str(exc)})
         for skill_file in self.discover_skill_files():
             metadata = self.load_skill(skill_file)
             if metadata:
