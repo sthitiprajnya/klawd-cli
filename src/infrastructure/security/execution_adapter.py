@@ -2,8 +2,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import re
+import shlex
+import subprocess
 
 from src.infrastructure.security.hooks_impl import prism_check
+
+
+_UNSAFE_BG_PATTERN = re.compile(r"(?:^|\s)(?:&|nohup\b|disown\b|setsid\b)", re.IGNORECASE)
 
 
 class PolicyRejectionError(RuntimeError):
@@ -61,5 +67,26 @@ class NemoClawExecutionAdapter:
                     remediation="Use an allowed non-privileged command and retry.",
                 )
 
+
+    def _tokenize_command(self, command: str) -> list[str]:
+        # CVE-2025-35028 mitigation: canonicalize free-form command strings using
+        # POSIX-aware tokenization before spawn so meta characters are not shell-interpreted.
+        return shlex.split(command)
+
+    def _validate_background_patterns(self, command: str) -> None:
+        # CVE-2025-35028 mitigation: reject shell-style background/process-detach syntax
+        # to prevent daemonization or hidden child process persistence.
+        if _UNSAFE_BG_PATTERN.search(command):
+            raise PolicyRejectionError(
+                source="nemoclaw",
+                reason="unsafe_background_process_pattern",
+                remediation="Remove background-process syntax (e.g. &, nohup, disown, setsid) and retry.",
+            )
+
+    def spawn_command(self, command: str) -> subprocess.Popen:
+        self._validate_background_patterns(command)
+        argv = self._tokenize_command(command)
+        # CVE-2025-35028 mitigation: never execute through a shell.
+        return subprocess.Popen(argv, shell=False)
 
 execution_adapter = NemoClawExecutionAdapter()
