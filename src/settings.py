@@ -8,9 +8,7 @@ class ExternalSkillRepo:
     repo_url: str
     pinned_ref: str
     enabled: bool = True
-    subdir: str | None = None
 @dataclass(frozen=True)
-@dataclass
 class ExternalSkillSource:
     name: str
     repo_url: str
