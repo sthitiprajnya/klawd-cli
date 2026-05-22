@@ -25,6 +25,7 @@ def parse_semgrep_output(stdout: bytes) -> list[dict]:
 
 class ImmunizationFilter:
     OSV_API = "https://api.osv.dev/v1/query"
+    OSV_BATCH_API = "https://api.osv.dev/v1/querybatch"
 
     def __init__(self, router=None):
         self.router = router or llm_router
@@ -88,13 +89,37 @@ class ImmunizationFilter:
         return ThreatResult(category="MALICIOUS_CODE", blocked=False)
 
     def _check_supply_chain(self, dependencies: list[dict]) -> ThreatResult:
-        for dep in dependencies:
+        if not dependencies:
+            return ThreatResult(category="SUPPLY_CHAIN", blocked=False)
+
+        chunk_size = 1000
+        for i in range(0, len(dependencies), chunk_size):
+            chunk = dependencies[i:i + chunk_size]
+            queries = {"queries": []}
+            for dep in chunk:
+                queries["queries"].append({"package": {"name": dep.get("name"), "ecosystem": dep.get("ecosystem")}})
+
             try:
-                resp = httpx.post(self.OSV_API, json={"package": {"name": dep.get("name"), "ecosystem": dep.get("ecosystem")}})
-                vulns = resp.json().get("vulns", [])
-                critical = [v for v in vulns if v.get("severity") == "CRITICAL"]
-                if critical:
-                    return ThreatResult(category="SUPPLY_CHAIN", blocked=True, evidence=f"Critical CVE in {dep.get('name')}")
+                resp = httpx.post(self.OSV_BATCH_API, json=queries)
+                resp.raise_for_status()
+                results = resp.json().get("results", [])
+
+                for idx, result in enumerate(results):
+                    vulns = result.get("vulns", [])
+                    critical = [v for v in vulns if v.get("severity") == "CRITICAL"]
+                    if critical:
+                        dep_name = chunk[idx].get("name")
+                        return ThreatResult(category="SUPPLY_CHAIN", blocked=True, evidence=f"Critical CVE in {dep_name}")
             except Exception:
-                continue
+                # Fallback to sequential checking for this chunk if the batch request fails
+                for dep in chunk:
+                    try:
+                        seq_resp = httpx.post(self.OSV_API, json={"package": {"name": dep.get("name"), "ecosystem": dep.get("ecosystem")}})
+                        seq_vulns = seq_resp.json().get("vulns", [])
+                        seq_critical = [v for v in seq_vulns if v.get("severity") == "CRITICAL"]
+                        if seq_critical:
+                            return ThreatResult(category="SUPPLY_CHAIN", blocked=True, evidence=f"Critical CVE in {dep.get('name')}")
+                    except Exception:
+                        continue
+
         return ThreatResult(category="SUPPLY_CHAIN", blocked=False)
