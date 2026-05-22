@@ -1,6 +1,5 @@
 import time
 import httpx
-import sys
 
 dependencies = [
     {"name": "django", "ecosystem": "PyPI"},
@@ -42,10 +41,11 @@ def batch_query():
     end_time = time.time()
     return end_time - start_time
 
-print(f"Benchmarking with {len(dependencies)} dependencies...")
-seq_time = sequential_query()
-batch_time = batch_query()
+if __name__ == "__main__":
+    print(f"Benchmarking with {len(dependencies)} dependencies...")
+    seq_time = sequential_query()
+    batch_time = batch_query()
 
-print(f"Sequential time: {seq_time:.4f}s")
-print(f"Batch time: {batch_time:.4f}s")
-print(f"Improvement: {seq_time / batch_time:.2f}x")
+    print(f"Sequential time: {seq_time:.4f}s")
+    print(f"Batch time: {batch_time:.4f}s")
+    print(f"Improvement: {seq_time / batch_time:.2f}x")
