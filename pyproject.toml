@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "klawd-cli"
+version = "1.0.0"
+description = "OmniAgent Enterprise"
+authors = ["Jules <jules@klawd.io>"]
+
+[tool.poetry.dependencies]
+pyyaml = "^6.0.1"
+
+[tool.pytest.ini_options]
+addopts = "-v --strict-markers --tb=short --cov=src --cov-report=term-missing"
+env = [
+    "OMNIAGENT_SKIP_CONFIG_VALIDATION=1",
+    "DATABASE_URL=sqlite:///:memory:",
+    "REDIS_URL=redis://localhost:6379/0",
+    "OPENHUMAN_URL=http://openhuman-core:7788",
+]

@@ -44,6 +44,7 @@ class RepoProvenanceStore:
                 )
 
     def list_records(self, db: Session) -> list[ProvenanceRecord]:
+        """Returns ProvenanceRecord objects with `discovered_skills` deserialized to list[dict]."""
         rows = db.query(RepoProvenanceEntry).order_by(RepoProvenanceEntry.ingest_timestamp.desc()).all()
         return [
             ProvenanceRecord(

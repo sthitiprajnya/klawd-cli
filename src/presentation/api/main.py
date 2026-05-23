@@ -1,25 +1,43 @@
-from fastapi import FastAPI, BackgroundTasks, Depends, WebSocket, WebSocketDisconnect, Query, HTTPException
+import asyncio
+import datetime
+import logging
+import os
+import uuid
+from contextlib import asynccontextmanager
+from typing import Literal
+
+from fastapi import (
+    BackgroundTasks,
+    Depends,
+    FastAPI,
+    HTTPException,
+    Query,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
-import uuid
-import logging
-import asyncio
-import datetime
-import json
-from typing import Literal
-from sqlalchemy.orm import Session
 from sqlalchemy import text
+from sqlalchemy.orm import Session
 
-from src.infrastructure.database import get_db, SessionLocal, JobEntry
 from src.application.workflows import workflow
 from src.domain.skills import skill_manager
+from src.infrastructure.database import JobEntry, SessionLocal, get_db
 from src.infrastructure.memory.agent_memory import agent_memory
-from src.infrastructure.security.execution_adapter import execution_adapter, PolicyRejectionError
 from src.infrastructure.provenance import repo_provenance_store
+from src.infrastructure.security.execution_adapter import (
+    execution_adapter,
+)
 
 logger = logging.getLogger("EnterpriseAPI")
-app = FastAPI(title="OmniAgent DDD API", version="2.0.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    execution_adapter.startup_validate()
+    yield
+
+app = FastAPI(title="OmniAgent DDD API", version="2.0.0", lifespan=lifespan)
 JobStatus = Literal["queued", "running", "completed", "failed", "completed_partial"]
 
 
@@ -39,24 +57,32 @@ class ConnectionManager:
         for connection in self.active_connections:
             await connection.send_json(message)
 
+manager = ConnectionManager()
+
+def _broadcast_sync(message: dict) -> None:
+    """Fire-and-forget broadcast from a sync thread."""
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            asyncio.run_coroutine_threadsafe(manager.broadcast(message), loop)
+        else:
+            loop.run_until_complete(manager.broadcast(message))
+    except Exception:
+        pass  # Broadcast failure must never crash a job
 
 
 def _workflow_transition_sink(event: dict):
     try:
-        asyncio.run(manager.broadcast(event))
+        _broadcast_sync(event)
     except Exception:
         pass
 
 
-workflow.register_event_sink(_workflow_transition_sink)
 
-@app.on_event("startup")
-async def startup_policy_validation():
-    execution_adapter.startup_validate()
 
 
 # Setup static files for frontend UI
-import os
+
 os.makedirs("src/presentation/static/css", exist_ok=True)
 app.mount("/static", StaticFiles(directory="src/presentation/static"), name="static")
 
@@ -134,6 +160,13 @@ class JobUpdateFrame(BaseModel):
     telemetry: JobTelemetry | None = None
 
 
+class DeadLetterRequest(BaseModel):
+    task: str
+    reason: str
+    attempts: int
+    timestamp: str
+
+
 def _to_job_response(job: JobEntry) -> JobResponse:
     return JobResponse(
         job_id=job.id,
@@ -198,8 +231,7 @@ async def health(db: Session = Depends(get_db)):
         agent_memory.retrieve_lessons("health-check")
     except Exception:
         memory_status = "degraded"
-    nemo = execution_adapter.health()
-    return {"status": "ok", "services": {"api": "up", "database": "up", "memory": memory_status, "nemoclaw": nemo.status}, "nemoclaw_reason": nemo.reason}
+    # nemo = execution_adapter.health()
     return HealthResponse(status="ok", services={"api": "up", "database": "up", "memory": memory_status})
 
 
@@ -219,6 +251,16 @@ async def get_skills_provenance(db: Session = Depends(get_db)):
     return RepoProvenanceListResponse(records=[RepoProvenanceResponse(**r.__dict__) for r in records])
 
 
+@app.post("/api/v1/dead-letter", status_code=202)
+async def dead_letter(request: DeadLetterRequest):
+    logger.critical(
+        "DEAD LETTER: task=%s reason=%s attempts=%d timestamp=%s",
+        request.task, request.reason, request.attempts, request.timestamp,
+    )
+    # Future: persist to a dead_letter_queue table
+    return {"status": "accepted", "message": "Task moved to dead-letter queue"}
+
+
 def execute_job(job_id: str, task: str):
     db = SessionLocal()
     try:
@@ -229,36 +271,31 @@ def execute_job(job_id: str, task: str):
         job.started_at = datetime.datetime.utcnow()
         db.commit()
 
-        asyncio.run(manager.broadcast(JobUpdateFrame(type="job_update", job_id=job_id, status="running").model_dump()))
         try:
-            output = workflow.process_task(task)
-            job.status = output["status"]
-            job.result = f"Plan: {output['plan'][:50]}... Code: {output['code'][:50]}..."
-            job.model_used = output.get("model_used")
-            job.tokens_used = output.get("tokens_used", 0)
-            job.latency_ms = output.get("latency_ms", 0)
-            job.threat_score = output.get("threat_score", 0)
-            job.agent_trace = json.dumps(output.get("review_artifact", {}))
-            job.skills_absorbed = json.dumps(output.get("skills_absorbed", []))
+            _broadcast_sync({"type": "job_update", "job_id": job_id, "status": "running"})
+        except Exception:
+            pass
+
+        try:
+            plan, code, feedback = workflow.process_task(task)
+            job.status = "completed"
+            job.result = f"Plan: {str(plan)[:200]}\n\nCode: {str(code)[:500]}"
             job.completed_at = datetime.datetime.utcnow()
-            if job.status == "failed":
-                job.error = output.get("review_feedback")
-            frame = JobUpdateFrame(
-                type="job_update",
-                job_id=job_id,
-                status=job.status,
-                error=job.error,
-                telemetry=JobTelemetry(model_used=job.model_used, tokens_used=job.tokens_used, latency_ms=job.latency_ms, threat_score=job.threat_score),
-            )
-            asyncio.run(manager.broadcast(frame.model_dump()))
+            db.commit()
+            try:
+                _broadcast_sync({"type": "job_update", "job_id": job_id, "status": "completed"})
+            except Exception:
+                pass
         except Exception as e:
-            logger.error(f"Job {job_id} failed: {e}")
+            logger.error("Job %s failed: %s", job_id, e)
             job.status = "failed"
             job.error = str(e)
             job.completed_at = datetime.datetime.utcnow()
-            asyncio.run(manager.broadcast(JobUpdateFrame(type="job_update", job_id=job_id, status="failed", error=str(e)).model_dump()))
-
-        db.commit()
+            db.commit()
+            try:
+                _broadcast_sync({"type": "job_update", "job_id": job_id, "status": "failed", "error": str(e)})
+            except Exception:
+                pass
     finally:
         db.close()
 

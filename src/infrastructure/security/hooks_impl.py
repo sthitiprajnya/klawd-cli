@@ -5,7 +5,12 @@ from collections import Counter, defaultdict, deque
 from pathlib import Path
 from typing import Any
 
-from src.infrastructure.security.hooks import HookPoint, HookReason, HookSeverity, PRISMVerdict
+from src.infrastructure.security.hooks import (
+    HookPoint,
+    HookReason,
+    HookSeverity,
+    PRISMVerdict,
+)
 
 logger = logging.getLogger("PRISMSecurity")
 

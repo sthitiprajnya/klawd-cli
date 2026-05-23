@@ -13,4 +13,4 @@ class PlannerAgent(BaseAgent):
     def create_plan(self, request: str, openhuman_context: dict | None = None) -> str:
         if openhuman_context:
             request = f"{request}\n\nOpenHuman Context: {openhuman_context}"
-        return self.process(request, task_type="fast")
+        return self.process(request, task_type="fast", openhuman_context=openhuman_context)

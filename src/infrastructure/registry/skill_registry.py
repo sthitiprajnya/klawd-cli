@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 import time
@@ -9,7 +10,11 @@ import httpx
 from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
 
-from src.infrastructure.registry.skill_adapters import SkillAdapterRegistry, SkillProvenanceManifest, adapt_and_validate
+from src.infrastructure.registry.skill_adapters import (
+    SkillAdapterRegistry,
+    SkillProvenanceManifest,
+    adapt_and_validate,
+)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("SkillRegistry")
@@ -150,16 +155,22 @@ class SkillHotReloader(FileSystemEventHandler):
         )
 
 
-if __name__ == "__main__":
+async def _main():
     event_handler = SkillHotReloader()
     observer = Observer()
     observer.schedule(event_handler, path="/var/lib/daemon/skills", recursive=True)
     observer.start()
+    logger.info("skill_registry: watching /var/lib/daemon/skills")
+    loop = asyncio.get_event_loop()
     try:
-        import time
-
         while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
+            await asyncio.sleep(1)
+    except (asyncio.CancelledError, KeyboardInterrupt):
+        pass
+    finally:
         observer.stop()
-    observer.join()
+        await loop.run_in_executor(None, observer.join)
+
+
+if __name__ == "__main__":
+    asyncio.run(_main())

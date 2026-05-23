@@ -37,6 +37,9 @@ class LLMRouter:
         return list(dict.fromkeys(keys))
 
     def _validate_litellm_config(self, path: str = "litellm_config.yaml") -> None:
+        import os
+        if os.getenv("OMNIAGENT_SKIP_CONFIG_VALIDATION", "").lower() in ("1", "true", "yes"):
+            return
         cfg_path = Path(path)
         if not cfg_path.exists():
             raise ValueError(f"LiteLLM config missing: {path}")

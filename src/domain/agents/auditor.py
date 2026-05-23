@@ -1,33 +1,10 @@
+from __future__ import annotations
 from .base import BaseAgent
+from src.settings import EXTERNAL_SKILL_SOURCES
 
 AUDITOR_PROMPT = """You are Delta, a benign code auditor.
 Analyze supplied code and metadata for safety, configuration hygiene, and compliance gaps.
 Return concise findings suitable for reviewer context."""
-
-
-class AuditorAgent(BaseAgent):
-    def __init__(self):
-        super().__init__(name="Delta", role="Auditor", system_prompt=AUDITOR_PROMPT)
-
-    def audit_codebase(self, code_artifact: str, audit_context: dict | None = None, openhuman_context: dict | None = None) -> str:
-        prompt = f"Code Artifact:\n{code_artifact}"
-        if audit_context:
-            prompt += f"\n\nAudit Context: {audit_context}"
-        if openhuman_context:
-            prompt += f"\n\nOpenHuman Context: {openhuman_context}"
-        return self.process(prompt, task_type="complex").strip()
-from __future__ import annotations
-
-from src.settings import EXTERNAL_SKILL_SOURCES
-
-from .base import BaseAgent
-
-AUDITOR_PROMPT = """You are an Offensive Security Auditor operating under strict legal and ethical guardrails.
-Your role is to evaluate software systems for defensive hardening opportunities, misconfigurations,
-and policy violations. You must ONLY provide benign, compliance-oriented, and remediation-focused guidance.
-Never provide exploit payloads, weaponization instructions, malware, privilege escalation playbooks,
-or operational attack steps. Keep output practical, structured, and suitable for authorized internal audits.
-"""
 
 
 class HexStrikeClient:
@@ -70,7 +47,7 @@ class CyberStrikeClient:
 
 class AuditorAgent(BaseAgent):
     def __init__(self, *, hexstrike_client: HexStrikeClient | None = None, cyberstrike_client: CyberStrikeClient | None = None):
-        super().__init__(name="Dana", role="Auditor", system_prompt=AUDITOR_PROMPT)
+        super().__init__(name="Delta", role="Auditor", system_prompt=AUDITOR_PROMPT)
         self.hexstrike_client = hexstrike_client or HexStrikeClient()
         self.cyberstrike_client = cyberstrike_client or CyberStrikeClient()
 
@@ -92,7 +69,7 @@ class AuditorAgent(BaseAgent):
         )
         if openhuman_context:
             prompt += f"\n\nOpenHuman Context: {openhuman_context}"
-        return self.process(prompt, task_type="complex")
+        return self.process(prompt, task_type="complex", openhuman_context=openhuman_context)
 
     def iterate_audit(self, prior_report: str, feedback: str, target: str, framework: str = "CIS", openhuman_context: dict | None = None) -> str:
         recon_context = self.get_benign_recon_context(target)
@@ -106,4 +83,4 @@ class AuditorAgent(BaseAgent):
         )
         if openhuman_context:
             prompt += f"\n\nOpenHuman Context: {openhuman_context}"
-        return self.process(prompt, task_type="complex")
+        return self.process(prompt, task_type="complex", openhuman_context=openhuman_context)

@@ -78,8 +78,7 @@ class AgentMemory:
             status=status,
             failure_class=failure_class,
         )
-    def store_outcome(self, task: str, result: str, feedback: str, *, job_id: str | None = None, agent: str = "workflow", status: str = "unknown", failure_class: str = "NONE", parent_id: str | None = None, related_ids: list[str] | None = None, metadata: dict[str, Any] | None = None) -> str:
-        record_id = f"mem_{int(datetime.now(timezone.utc).timestamp() * 1000000)}"
+
         timestamp = self._utc_now_iso()
         record = {
             "id": record_id,
@@ -93,17 +92,16 @@ class AgentMemory:
                 "created_at": timestamp,
                 "updated_at": timestamp,
                 **meta,
-                **(metadata or {}),
             },
             "refs": {"parent_id": parent_id, "related_ids": related_ids or []},
         }
+
         try:
             self._store_record(record)
             logger.info("Stored unified memory record with idempotency key %s.", record_id)
-        except Exception as e:
-            logger.error("Failed to store memory: %s", e)
         except Exception as exc:
             logger.error("Failed to store memory: %s", exc)
+
         return record_id
 
     def _search_records(self, query: str) -> list[dict[str, Any]]:
@@ -125,7 +123,7 @@ class AgentMemory:
                     pass
         return parsed
 
-    def retrieve_lessons(self, context: str, top_k: int = 3) -> str:
+    def retrieve_lessons(self, context: str, top_k: int = 3) -> list[str]:
         try:
             payload = {"jsonrpc": "2.0", "method": "retrieve_lessons", "params": {"context": context, "top_k": top_k}, "id": 1}
             response = httpx.post(self.base_url, json=payload, timeout=2.0)
@@ -133,18 +131,16 @@ class AgentMemory:
                 data = response.json()
                 if data.get("result"):
                     if isinstance(data["result"], list):
-                        return "\n---\n".join(data["result"][-3:])
-                    return str(data["result"])
+                        return data["result"][-3:]
+                    return [str(data["result"])]
             records = self._search_records(context)
             if records:
                 snippets = [json.dumps(r.get("content", r), default=str) for r in records[-3:]]
-                return "\n---\n".join(snippets)
-            return "No past lessons found."
+                return snippets
+            return []
         except Exception as e:
             logger.warning("Retrieve failed: %s", e)
-            return "\n---\n".join([json.dumps(r.get("content", r), default=str) for r in records[-3:]]) if records else "No past lessons found."
-        except Exception:
-            return "Could not retrieve past lessons."
-
+            records = locals().get("records", [])
+            return [json.dumps(r.get("content", r), default=str) for r in records[-3:]] if records else []
 
 agent_memory = AgentMemory()

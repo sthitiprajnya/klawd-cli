@@ -1,13 +1,15 @@
 import logging
 import os
 import time
-from abc import ABC, abstractmethod
+from abc import ABC
 from typing import Any, TypedDict
 
 import httpx
 
 from src.infrastructure.llm_router import llm_router
 from src.infrastructure.security.execution_adapter import execution_adapter
+from src.infrastructure.security.hooks import HookPoint
+from src.infrastructure.security.hooks_impl import prism_check
 
 logger = logging.getLogger("BaseAgent")
 
@@ -102,9 +104,19 @@ class BaseAgent(ABC):
         }
         return "\n[Context: Stateless fallback mode enabled (OpenHuman unavailable)]"
 
-    def process(self, prompt: str, task_type: str = "coding") -> str:
+    def process(self, prompt: str, task_type: str = "coding", openhuman_context: dict | None = None) -> str:
+        inbound_verdict = prism_check(HookPoint.H1_PROMPT_RECEIVED.value, prompt=prompt)
+        if not inbound_verdict.allow:
+            logger.warning("BaseAgent.process: H1 rejected prompt for %s: %s", self.name, inbound_verdict.reason)
+            return f"[BLOCKED by PRISM: {inbound_verdict.reason}]"
+
         logger.info(f"{self.name} ({self.role}) is processing task.")
         dynamic_context = self._get_dynamic_context()
+
+        if openhuman_context:
+            oh_summary = openhuman_context.get("openhuman_status", "available")
+            dynamic_context += f"\n[OpenHuman Status: {oh_summary}]"
+
         full_system_prompt = f"{self.base_system_prompt}{dynamic_context}"
 
         full_prompt = f"System: {full_system_prompt}\n\nUser: {prompt}"

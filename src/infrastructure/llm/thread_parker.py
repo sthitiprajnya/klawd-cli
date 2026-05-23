@@ -1,12 +1,19 @@
-import os
-import time
-import threading
-import redis
-import httpx
-import uuid
 import logging
+import os
+import threading
+import time
+import uuid
 
-from src.infrastructure.rust_workers import RustWorkerClient, RustWorkerError
+import httpx
+import redis
+
+try:
+    from src.infrastructure.rust_workers import RustWorkerClient, RustWorkerError
+    _rust_workers: "RustWorkerClient | None" = RustWorkerClient()
+except Exception:
+    _rust_workers = None
+    class RustWorkerError(Exception):
+        pass  # type: ignore[misc]
 
 logger = logging.getLogger("ThreadParker")
 r = redis.Redis(host="redis", port=6379, decode_responses=True)
@@ -15,8 +22,6 @@ MAX_PARK_DURATION = 300
 ERROR_WINDOW_SECONDS = 300
 DEGRADED_WINDOW_SECONDS = 180
 FAILURE_THRESHOLD = 3
-
-rust_workers = RustWorkerClient()
 
 
 def get_all_configured_keys(pool: str) -> list[str]:
@@ -86,7 +91,10 @@ class ThreadParker:
             return None
 
         try:
-            statuses = rust_workers.get_provider_status(model_pool, configured_keys)
+            if _rust_workers is not None:
+                statuses = _rust_workers.get_provider_status(model_pool, configured_keys)
+            else:
+                statuses = {k: True for k in configured_keys}
         except RustWorkerError as exc:
             logger.warning("Rust prober unavailable, using Redis-only fallback: %s", exc)
             statuses = {k: True for k in configured_keys}

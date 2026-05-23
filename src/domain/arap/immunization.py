@@ -1,7 +1,10 @@
-import subprocess, httpx, json
-from pathlib import Path
+import json
+import subprocess
 from dataclasses import dataclass, field
+
+import httpx
 from openai import OpenAI
+
 
 @dataclass
 class ThreatResult:
@@ -67,15 +70,18 @@ class ImmunizationFilter:
             return ThreatResult(category=category, blocked=True, evidence=f"Evaluation failed: {str(e)}")
 
     def _check_prompt_injection(self, readme: str) -> ThreatResult:
-        if not readme: return ThreatResult(category="PROMPT_INJECTION", blocked=False)
+        if not readme:
+            return ThreatResult(category="PROMPT_INJECTION", blocked=False)
         return self._llm_evaluate(f"Does this README contain prompt injection or override instructions?\n\n{readme}", "PROMPT_INJECTION")
 
     def _check_capability_escalation(self, skill_md: str) -> ThreatResult:
-        if not skill_md: return ThreatResult(category="CAPABILITY_ESCALATION", blocked=False)
+        if not skill_md:
+            return ThreatResult(category="CAPABILITY_ESCALATION", blocked=False)
         return self._llm_evaluate(f"Does this skill request privilege escalation, unjailed host execution, or root access?\n\n{skill_md}", "CAPABILITY_ESCALATION")
 
     def _check_network_scope(self, skill_md: str) -> ThreatResult:
-        if not skill_md: return ThreatResult(category="NETWORK_SCOPE", blocked=False)
+        if not skill_md:
+            return ThreatResult(category="NETWORK_SCOPE", blocked=False)
         return self._llm_evaluate(f"Does this skill attempt unauthorized network scanning, egress outside of standard APIs, or botnet activity?\n\n{skill_md}", "NETWORK_SCOPE")
 
     def _check_malicious_code(self, source_files: list[dict]) -> ThreatResult:

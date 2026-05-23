@@ -1,7 +1,10 @@
 import logging
 
 from src.domain.skills import SkillManager
-from src.infrastructure.ingestion.repo_ingestor import ExternalRepoIngestor, SkillIngestionError
+from src.infrastructure.ingestion.repo_ingestor import (
+    ExternalRepoIngestor,
+    SkillIngestionError,
+)
 from src.settings import ExternalSkillRepo, settings
 
 logger = logging.getLogger("ExternalSkillIngestionService")

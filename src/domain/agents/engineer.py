@@ -13,10 +13,10 @@ class EngineerAgent(BaseAgent):
     def write_code(self, task: str, openhuman_context: dict | None = None) -> str:
         if openhuman_context:
             task = f"{task}\n\nOpenHuman Context: {openhuman_context}"
-        return self.process(task, task_type="coding")
+        return self.process(task, task_type="coding", openhuman_context=openhuman_context)
 
     def iterate_code(self, original_code: str, feedback: str, openhuman_context: dict | None = None) -> str:
         prompt = f"Original Code:\n{original_code}\n\nReviewer Feedback:\n{feedback}\n\nPlease revise the code to address the feedback."
         if openhuman_context:
             prompt += f"\n\nOpenHuman Context: {openhuman_context}"
-        return self.process(prompt, task_type="coding")
+        return self.process(prompt, task_type="coding", openhuman_context=openhuman_context)

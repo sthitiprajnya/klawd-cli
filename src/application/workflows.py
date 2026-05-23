@@ -1,6 +1,5 @@
 import json
 import logging
-import re
 import subprocess
 import time
 from dataclasses import asdict, dataclass, field
@@ -8,9 +7,14 @@ from datetime import datetime, timezone
 from typing import Any
 
 from src.application.orchestration.failure_classifier import classify_failure
-from src.domain.agents import AbsorberAgent, AuditorAgent, EngineerAgent, PlannerAgent, ReviewerAgent
+from src.domain.agents import (
+    AbsorberAgent,
+    AuditorAgent,
+    EngineerAgent,
+    PlannerAgent,
+    ReviewerAgent,
+)
 from src.domain.agents.reviewer import ReviewResult, ReviewStatus
-from src.domain.skills import skill_manager
 from src.infrastructure.memory.agent_memory import agent_memory
 from src.infrastructure.openhuman.capability_router import resolve_capabilities
 from src.infrastructure.security.hooks import HookPoint
@@ -168,7 +172,7 @@ class OmniWorkflow:
         agent_memory.store_outcome(
             task,
             code,
-            json.dumps(review_artifact),
+            json.dumps(review_artifact, sort_keys=True),
             status=final_review.status.value,
             failure_class=failure_class,
             metadata={

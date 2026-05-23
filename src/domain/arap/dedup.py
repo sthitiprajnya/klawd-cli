@@ -1,5 +1,5 @@
-from sentence_transformers import SentenceTransformer, util
 import httpx
+from sentence_transformers import SentenceTransformer, util
 
 from src.domain.arap.skill_parser import parse_skill_sections
 from src.settings import settings
@@ -44,7 +44,10 @@ def compute_overlap(new_skill_md: str, existing_skill_md: str) -> float:
     return sum(scores) if scores else 0.0
 
 def dedup_decision(overlap: float) -> str:
-    if overlap >= settings.dedup_similarity_threshold: return "MERGE"
-    if overlap >= 0.60: return "EXTEND"
-    if overlap >= 0.40: return "LINK"
+    if overlap >= settings.dedup_similarity_threshold:
+        return "MERGE"
+    if overlap >= 0.60:
+        return "EXTEND"
+    if overlap >= 0.40:
+        return "LINK"
     return "ADD"

@@ -34,7 +34,7 @@ def test_normal_route_selection():
         messages=[{"role": "user", "content": "Help"}],
         temperature=0.2,
         max_tokens=1024,
-        extra_body={"metadata": {"task_type": "fast", "job_id": "job-1", "token_budget": 1024, "prompt_chars": 4}},
+        extra_body={"metadata": {"task_type": "fast", "job_id": "job-1", "token_budget": 1024, "prompt_chars": 4, "api_key_pool_size": 1}},
     )
 
 
@@ -45,12 +45,18 @@ def test_fallback_on_provider_failure():
     test_router.client = mock_client
 
     res = test_router.route("Implement feature", task_type="coding", job_id="job-2")
-    assert res.startswith("Error: provider unavailable")
+    assert res.startswith("Error: all model routes failed after failover attempts")
 
 
 def test_degraded_provider_bypass():
+    import sys
     sys.modules["redis"] = SimpleNamespace(Redis=MagicMock(return_value=MagicMock()))
     sys.modules["httpx"] = SimpleNamespace(put=MagicMock())
+    import sys
+    sys.modules["litellm"] = MagicMock()
+    sys.modules["litellm.integrations"] = MagicMock()
+    sys.modules["litellm.integrations.custom_logger"] = MagicMock()
+    sys.modules["litellm.integrations.custom_logger"].CustomLogger = MagicMock()
     from src.infrastructure.llm import thread_parker
 
     with patch.object(thread_parker, "get_all_configured_keys", return_value=["k1", "k2"]), \

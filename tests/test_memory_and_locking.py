@@ -15,7 +15,7 @@ def test_successful_unified_write(monkeypatch):
         captured["payload"] = json
         return MagicMock(status_code=200, json=lambda: {"result": "ok"})
 
-    monkeypatch.setattr("src.infrastructure.memory.agent_memory.httpx.post", fake_post)
+    monkeypatch.setattr("httpx.post", fake_post)
     record_id = mem.store_outcome(
         "task",
         "result",
@@ -62,7 +62,7 @@ def test_successful_write_after_conflict(monkeypatch):
 
 def test_non_fatal_persistence_failure(monkeypatch):
     mem = AgentMemory()
-    monkeypatch.setattr("src.infrastructure.memory.agent_memory.httpx.post", lambda *_a, **_k: (_ for _ in ()).throw(RuntimeError("boom")))
+    monkeypatch.setattr("httpx.post", lambda *_a, **_k: (_ for _ in ()).throw(RuntimeError("boom")))
 
     record_id = mem.store_outcome("task", "result", "feedback")
     assert record_id.startswith("mem_")

@@ -3,7 +3,10 @@ import os
 from pathlib import Path
 
 from src.domain.arap.skill_parser import parse_skill_frontmatter, validate_skill_schema
-from src.infrastructure.registry.external_skill_ingestion import ExternalSkillIngestionError, ingest_external_skill_sources
+from src.infrastructure.registry.external_skill_ingestion import (
+    ExternalSkillIngestionError,
+    ingest_external_skill_sources,
+)
 
 logger = logging.getLogger("SkillManager")
 
@@ -22,7 +25,9 @@ class SkillManager:
 
     def refresh_skills(self, include_external: bool = True) -> None:
         if include_external:
-            from src.application.ingestion.service import ingest_external_skills_into_manager
+            from src.application.ingestion.service import (
+                ingest_external_skills_into_manager,
+            )
 
             ingest_external_skills_into_manager(self)
 

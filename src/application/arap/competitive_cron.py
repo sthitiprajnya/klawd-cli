@@ -1,8 +1,15 @@
-import schedule, time, httpx
-import uuid
-import logging
+# Ensure DATABASE_URL matches src/infrastructure/database.py
+# Default: sqlite:///jobs.db (local dev) — override with DATABASE_URL env var for production
+
 import datetime
+import logging
+import time
+import uuid
+
+import httpx
+import schedule
 from sentence_transformers import SentenceTransformer, util
+
 from src.infrastructure.database import SessionLocal
 from src.infrastructure.provenance import ProvenanceRecord, repo_provenance_store
 
@@ -63,6 +70,8 @@ def competitive_absorption_run():
                     policy_reason=policy_reason,
                 ),
             )
+        except Exception as exc:
+            logger.error("Provenance write failed for %s: %s", url, exc)
         finally:
             db.close()
 

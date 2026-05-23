@@ -1,7 +1,8 @@
-import networkx as nx
-from dataclasses import dataclass, field
-import httpx
 import logging
+from dataclasses import dataclass, field
+
+import httpx
+import networkx as nx
 
 logger = logging.getLogger("CircularGuard")
 
