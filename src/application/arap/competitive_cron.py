@@ -1,4 +1,5 @@
 import schedule, time, httpx
+import asyncio
 import uuid
 import logging
 import datetime
@@ -31,6 +32,20 @@ def compute_relevance(repo: dict) -> float:
     repo_emb = model.encode(repo_text)
     return float(util.cos_sim(daemon_emb, repo_emb))
 
+async def _queue_and_notify_async(client: httpx.AsyncClient, url: str, relevance: float):
+    try:
+        # Send payload directly to FastAPI job queue
+        await client.post("http://localhost:8000/api/v1/jobs", json={"task": f"absorb {url}"})
+
+        # Notify Matrix
+        txn_id = str(uuid.uuid4())
+        await client.put(
+            f"http://tuwunel-matrix:8008/_matrix/client/v3/rooms/%23daemon-ops%3Adaemon.local/send/m.room.message/{txn_id}",
+            json={"msgtype": "m.text", "body": f"🔍 Auto-queued: {url} (relevance={relevance:.2f})"}
+        )
+    except Exception as e:
+        logger.error(f"Failed to queue or notify for {url}: {e}")
+
 def competitive_absorption_run():
     repos = fetch_trending_repos()
 
@@ -41,6 +56,8 @@ def competitive_absorption_run():
     except Exception as e:
         logger.warning(f"Agent memory error: {e}")
         already_absorbed = []
+
+    tasks_to_run = []
 
     for repo in repos:
         url = repo["html_url"]
@@ -67,20 +84,26 @@ def competitive_absorption_run():
             db.close()
 
         if url not in str(already_absorbed) and policy_decision == "allow":
-            try:
-                # Send payload directly to FastAPI job queue
-                httpx.post("http://localhost:8000/api/v1/jobs", json={"task": f"absorb {url}"})
+            # Pass lambda or closure to defer creation until _run_all
+            tasks_to_run.append((url, relevance))
 
-                # Notify Matrix
-                txn_id = str(uuid.uuid4())
-                httpx.put(
-                    f"http://tuwunel-matrix:8008/_matrix/client/v3/rooms/%23daemon-ops%3Adaemon.local/send/m.room.message/{txn_id}",
-                    json={"msgtype": "m.text", "body": f"🔍 Auto-queued: {url} (relevance={relevance:.2f})"}
-                )
-            except Exception as e:
-                logger.error(f"Failed to queue or notify for {url}: {e}")
+    async def _run_all():
+        async with httpx.AsyncClient() as client:
+            for i, (u, r) in enumerate(tasks_to_run):
+                await _queue_and_notify_async(client, u, r)
+                # Add delay to preserve rate limits per the original design, but unblocked.
+                # Only sleep if it is not the last item.
+                if i < len(tasks_to_run) - 1:
+                    await asyncio.sleep(1800)
 
-            time.sleep(1800) # 30 min gap to preserve rate limits
+    if tasks_to_run:
+        # We fire the background queue processing as a detached async task
+        # so it doesn't block the main schedule loop thread.
+        # Since schedule blocks the main thread, we spawn a thread to run the async loop
+        import threading
+        def _run_in_thread():
+            asyncio.run(_run_all())
+        threading.Thread(target=_run_in_thread, daemon=True).start()
 
 schedule.every().sunday.at("03:00").do(competitive_absorption_run)
 
