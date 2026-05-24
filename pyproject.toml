@@ -1,13 +1,5 @@
-[tool.poetry]
-name = "klawd-cli"
-version = "0.1.0"
-description = "OmniAgent Enterprise - Autonomous Software Engineering AI Agent"
-authors = ["Sthitaprajna Biswal <32985707+sthitiprajnya@users.noreply.github.com>"]
-readme = "README.md"
-packages = [{include = "src"}]
-
 [build-system]
-requires = ["poetry-core"]
+requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [project]
@@ -18,6 +10,14 @@ authors = [{name = "Sthitaprajna Biswal", email = "32985707+sthitiprajnya@users.
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
+
+[tool.poetry]
+name = "klawd-cli"
+version = "0.1.0"
+description = "OmniAgent Enterprise - Autonomous Software Engineering AI Agent"
+authors = ["Sthitaprajna Biswal <32985707+sthitiprajnya@users.noreply.github.com>"]
+readme = "README.md"
+packages = [{include = "src"}]
 
 [tool.poetry.dependencies]
 python = "^3.10"
