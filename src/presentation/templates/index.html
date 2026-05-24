@@ -10,12 +10,12 @@
     <div class="container">
         <div class="header">
             <h1>OmniAgent Enterprise 🧠</h1>
-            <span class="badge" id="status-badge">Daemon Online</span>
+            <span class="badge" id="status-badge" role="status">Daemon Online</span>
         </div>
 
         <div class="card">
             <h2>Active Job Queue</h2>
-            <div class="job-list" id="jobs-container">
+            <div class="job-list" id="jobs-container" aria-live="polite" aria-atomic="true">
                 <p>Loading jobs...</p>
             </div>
         </div>

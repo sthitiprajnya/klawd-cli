@@ -1,0 +1,3 @@
+## 2024-05-24 - Dynamic WebSocket DOM Updates
+**Learning:** For sections of the DOM updated dynamically via WebSockets (like the job queue), screen readers miss the updates entirely. Using `aria-live="polite"` handles this elegantly by waiting for the user to finish their current task before announcing the change, preventing disruptive interruptions.
+**Action:** Always add `aria-live="polite"` (and `aria-atomic="true"` if the entire region should be read out together) to dynamic queue or status containers that users don't interact with directly but need to track.
