@@ -19,8 +19,8 @@ function renderJobs(jobs) {
     jobsContainer.innerHTML = jobs.map((job) => `
         <div class="job-item" data-job-id="${escapeHTML(job.job_id)}">
             <div class="job-info">
-                <span class="job-id">ID: ${escapeHTML(job.job_id).substring(0,12)}</span>
-                <span class="job-task">${escapeHTML(job.task).substring(0, 60)}...</span>
+                <span class="job-id" title="${escapeHTML(job.job_id)}">ID: ${escapeHTML(job.job_id).substring(0,12)}</span>
+                <span class="job-task" title="${escapeHTML(job.task)}">${escapeHTML(job.task).substring(0, 60)}...</span>
             </div>
             <span class="status status-${escapeHTML(job.status)}">${escapeHTML(job.status)}</span>
         </div>
