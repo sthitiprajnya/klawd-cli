@@ -1,0 +1,3 @@
+## 2024-03-20 - Accessible Truncated Text
+**Learning:** Visually truncated text in the frontend UI must always be paired with an accessible `title` attribute or tooltip containing the full text to ensure accessibility and usability.
+**Action:** When truncating text for visual layout purposes, always include the full text in a `title` or `aria-label` attribute on the element containing the truncated text.
