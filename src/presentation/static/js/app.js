@@ -16,22 +16,15 @@ function renderJobs(jobs) {
         jobsContainer.innerHTML = "<p style='color: var(--text-secondary);'>No active jobs. Queue is empty.</p>";
         return;
     }
-    jobsContainer.innerHTML = jobs.map((job) => {
-        const fullId = escapeHTML(job.job_id);
-        const displayId = fullId.length > 12 ? fullId.substring(0, 12) + '...' : fullId;
-        const fullTask = escapeHTML(job.task);
-        const displayTask = fullTask.length > 60 ? fullTask.substring(0, 60) + '...' : fullTask;
-
-        return `
-        <div class="job-item" data-job-id="${fullId}">
+    jobsContainer.innerHTML = jobs.map((job) => `
+        <div class="job-item" data-job-id="${escapeHTML(job.job_id)}">
             <div class="job-info">
-                <span class="job-id" title="${fullId}">ID: ${displayId}</span>
-                <span class="job-task" title="${fullTask}">${displayTask}</span>
+                <span class="job-id">ID: ${escapeHTML(job.job_id).substring(0,12)}</span>
+                <span class="job-task">${escapeHTML(job.task).substring(0, 60)}...</span>
             </div>
             <span class="status status-${escapeHTML(job.status)}">${escapeHTML(job.status)}</span>
         </div>
-        `;
-    }).join('');
+    `).join('');
 }
 
 async function fetchData() {
