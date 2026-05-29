@@ -1,0 +1,3 @@
+## 2026-05-29 - Truncated Text Requires Tooltips
+**Learning:** Visually truncated text (e.g., using ellipses like `...` on job IDs and tasks) in the frontend UI hides critical information and creates accessibility issues. Screen readers might only read the truncated string, and sighted users cannot see the full content.
+**Action:** Always pair visually truncated text with an accessible `title` attribute or tooltip containing the full text to ensure accessibility and usability. I will ensure all dynamic content rendering in `app.js` adheres to this standard.
