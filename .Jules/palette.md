@@ -1,0 +1,3 @@
+## 2024-05-18 - Truncated Text Accessibility
+**Learning:** Visually truncated text (e.g., using ellipses like `...`) in the frontend UI must always be paired with an accessible `title` attribute or tooltip containing the full text to ensure accessibility and usability. Conditional logic should be used to only append ellipses when the text is actually truncated.
+**Action:** When truncating text using JS `.substring()` or CSS `text-overflow: ellipsis`, always ensure the full text is accessible via a `title` attribute. Add conditional checks to ensure ellipses are not added unnecessarily when text falls within the length limits.
