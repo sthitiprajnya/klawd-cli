@@ -1,8 +1,8 @@
+import typing
 import datetime as dt
 import hashlib
-from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Callable
 
 from src.application.prompt_registry import EvalInputContract, PromptVersionRegistry
 

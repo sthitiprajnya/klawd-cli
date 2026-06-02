@@ -1,11 +1,7 @@
-import json
-import subprocess
+import subprocess, httpx, json
 from dataclasses import dataclass, field
 
-import httpx
-
 from src.infrastructure.llm_router import llm_router
-
 
 @dataclass
 class ThreatResult:

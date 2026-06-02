@@ -1,6 +1,5 @@
 import logging
 from dataclasses import dataclass
-
 from litellm.integrations.custom_logger import CustomLogger
 
 logger = logging.getLogger("TaskClassifier")

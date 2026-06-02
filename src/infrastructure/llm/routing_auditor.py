@@ -1,5 +1,4 @@
 import logging
-
 from litellm.integrations.custom_logger import CustomLogger
 
 logger = logging.getLogger("RoutingAuditor")

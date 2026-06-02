@@ -1,12 +1,8 @@
-import datetime
-import logging
-import time
+import schedule, time, httpx
 import uuid
-
-import httpx
-import schedule
+import logging
+import datetime
 from sentence_transformers import SentenceTransformer, util
-
 from src.infrastructure.database import SessionLocal
 from src.infrastructure.provenance import ProvenanceRecord, repo_provenance_store
 

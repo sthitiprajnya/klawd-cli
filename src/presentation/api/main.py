@@ -1,25 +1,23 @@
 from __future__ import annotations
-
-import asyncio
-import datetime
-import json
-import logging
-import uuid
-from typing import Literal
-
-from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, BackgroundTasks, Depends, WebSocket, WebSocketDisconnect, Query, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
-from sqlalchemy import text
+import uuid
+import logging
+import asyncio
+import datetime
+import json
+from typing import Literal
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 
+from src.infrastructure.database import get_db, SessionLocal, JobEntry
 from src.application.workflows import workflow
 from src.domain.skills import skill_manager
-from src.infrastructure.database import JobEntry, SessionLocal, get_db
 from src.infrastructure.memory.agent_memory import agent_memory
-from src.infrastructure.provenance import repo_provenance_store
 from src.infrastructure.security.execution_adapter import execution_adapter
+from src.infrastructure.provenance import repo_provenance_store
 
 logger = logging.getLogger("EnterpriseAPI")
 app = FastAPI(title="OmniAgent DDD API", version="2.0.0")
@@ -61,7 +59,6 @@ async def startup_policy_validation():
 
 # Setup static files for frontend UI
 import os
-
 os.makedirs("src/presentation/static/css", exist_ok=True)
 app.mount("/static", StaticFiles(directory="src/presentation/static"), name="static")
 
@@ -270,5 +267,5 @@ def execute_job(job_id: str, task: str):
 
 @app.get("/", response_class=HTMLResponse)
 async def serve_dashboard():
-    with open("src/presentation/templates/index.html") as f:
+    with open("src/presentation/templates/index.html", "r") as f:
         return f.read()

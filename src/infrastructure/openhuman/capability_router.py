@@ -25,6 +25,6 @@ def resolve_capabilities(stage: str, *, openhuman_available: bool, overrides: di
                 base[key] = value
 
     if not openhuman_available:
-        return CapabilityRoute(stage=stage, enabled=dict.fromkeys(base, False), fallback_reason="openhuman_unavailable")
+        return CapabilityRoute(stage=stage, enabled={k: False for k in base}, fallback_reason="openhuman_unavailable")
 
     return CapabilityRoute(stage=stage, enabled=base)
