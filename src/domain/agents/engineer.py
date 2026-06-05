@@ -6,6 +6,7 @@ Ensure code follows best practices. Do not include any malicious or offensive se
 You are capable of deep reasoning and complex algorithms.
 Output clean code with minimal commentary. If provided with feedback, iteratively improve the code."""
 
+
 class EngineerAgent(BaseAgent):
     def __init__(self):
         super().__init__(name="Bob", role="Engineer", system_prompt=ENGINEER_PROMPT)

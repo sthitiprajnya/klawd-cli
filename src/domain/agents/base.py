@@ -1,7 +1,6 @@
 import logging
 import os
 import time
-from abc import ABC
 from typing import Any, TypedDict
 
 import httpx
@@ -24,7 +23,7 @@ class OpenHumanJsonRpcResponse(TypedDict, total=False):
     error: dict[str, Any]
 
 
-class BaseAgent(ABC):
+class BaseAgent:
     def __init__(self, name: str, role: str, system_prompt: str):
         self.name = name
         self.role = role

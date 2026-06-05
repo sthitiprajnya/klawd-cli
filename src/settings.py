@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import os
 from dataclasses import dataclass
 
@@ -9,7 +10,8 @@ class ExternalSkillRepo:
     pinned_ref: str
     enabled: bool = True
     subdir: str | None = None
-@dataclass(frozen=True)
+
+
 @dataclass
 class ExternalSkillSource:
     name: str
