@@ -15,17 +15,17 @@
 
         <div class="card">
             <h2>Active Job Queue</h2>
-            <div class="job-list" id="jobs-container">
+            <div class="job-list" id="jobs-container" aria-live="polite">
                 <p>Loading jobs...</p>
             </div>
         </div>
 
         <div class="card">
             <h2>System Intelligence</h2>
-            <h3>Absorbed Skills Context (Majin Buu)</h3>
-            <pre id="skills-container">Loading skills...</pre>
-            <h3>External Repo Provenance (latest 5)</h3>
-            <pre id="provenance-container">Loading provenance...</pre>
+            <h3 id="skills-heading">Absorbed Skills Context (Majin Buu)</h3>
+            <pre id="skills-container" aria-live="polite" aria-labelledby="skills-heading" tabindex="0">Loading skills...</pre>
+            <h3 id="provenance-heading">External Repo Provenance (latest 5)</h3>
+            <pre id="provenance-container" aria-live="polite" aria-labelledby="provenance-heading" tabindex="0">Loading provenance...</pre>
         </div>
     </div>
     <script src="/static/js/app.js"></script>
