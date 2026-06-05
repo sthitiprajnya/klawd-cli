@@ -97,6 +97,7 @@ pre {
 }
 
 .status-completed { background-color: #d1fae5; color: #065f46; }
-.status-processing { background-color: #fef3c7; color: #92400e; }
+.status-completed_partial { background-color: #bbf7d0; color: #166534; }
+.status-running { background-color: #fef3c7; color: #92400e; }
 .status-failed { background-color: #fee2e2; color: #991b1b; }
-.status-pending { background-color: #e0e7ff; color: #3730a3; }
+.status-queued { background-color: #e0e7ff; color: #3730a3; }
