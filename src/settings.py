@@ -11,6 +11,7 @@ class ExternalSkillRepo:
     enabled: bool = True
     subdir: str | None = None
 
+
 @dataclass
 class ExternalSkillSource:
     name: str

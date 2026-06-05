@@ -105,7 +105,9 @@ class CyberstrikeClient:
 
         url = f"{self.base_url.rstrip('/')}/{path.lstrip('/')}"
         try:
-            response = httpx.request(method=method, url=url, json=payload or {}, headers=headers, timeout=self.timeout_seconds)
+            response = httpx.request(
+                method=method, url=url, json=payload or {}, headers=headers, timeout=self.timeout_seconds
+            )
         except httpx.HTTPError as exc:
             raise CyberstrikeClientError(f"cyberstrike request failed: {exc}") from exc
 
