@@ -1,11 +1,18 @@
-from sentence_transformers import SentenceTransformer, util
 import httpx
+from sentence_transformers import SentenceTransformer, util
 
 from src.domain.arap.skill_parser import parse_skill_sections
 from src.settings import settings
 
 # Initialize local offline embedding model
-model = SentenceTransformer("all-mpnet-base-v2")
+# Deferred loading so we don't hit HF API at module load time on CI
+model = None
+
+def get_model():
+    global model
+    if model is None:
+        model = SentenceTransformer("all-mpnet-base-v2")
+    return model
 
 
 def _search_mempalace_similarity(query: str) -> float | None:
@@ -37,8 +44,8 @@ def compute_overlap(new_skill_md: str, existing_skill_md: str) -> float:
 
     for section, weight in weights.items():
         if section in new_sections and section in exist_sections:
-            emb_new   = model.encode(new_sections[section])
-            emb_exist = model.encode(exist_sections[section])
+            emb_new   = get_model().encode(new_sections[section])
+            emb_exist = get_model().encode(exist_sections[section])
             scores.append(weight * float(util.cos_sim(emb_new, emb_exist)))
 
     return sum(scores) if scores else 0.0
