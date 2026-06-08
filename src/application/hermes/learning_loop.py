@@ -1,4 +1,3 @@
-import typing
 import datetime as dt
 import hashlib
 from dataclasses import dataclass
