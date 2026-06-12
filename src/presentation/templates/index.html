@@ -15,7 +15,7 @@
 
         <div class="card">
             <h2>Active Job Queue</h2>
-            <div class="job-list" id="jobs-container">
+            <div class="job-list" id="jobs-container" aria-live="polite">
                 <p>Loading jobs...</p>
             </div>
         </div>
@@ -23,9 +23,9 @@
         <div class="card">
             <h2>System Intelligence</h2>
             <h3>Absorbed Skills Context (Majin Buu)</h3>
-            <pre id="skills-container">Loading skills...</pre>
+            <pre id="skills-container" aria-live="polite">Loading skills...</pre>
             <h3>External Repo Provenance (latest 5)</h3>
-            <pre id="provenance-container">Loading provenance...</pre>
+            <pre id="provenance-container" aria-live="polite">Loading provenance...</pre>
         </div>
     </div>
     <script src="/static/js/app.js"></script>
