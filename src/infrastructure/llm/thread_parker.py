@@ -1,11 +1,10 @@
-import logging
 import os
-import threading
 import time
-import uuid
-
-import httpx
+import threading
 import redis
+import httpx
+import uuid
+import logging
 
 from src.infrastructure.rust_workers import RustWorkerClient, RustWorkerError
 

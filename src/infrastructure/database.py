@@ -1,10 +1,11 @@
 from __future__ import annotations
-
-import datetime
-import os
-
-from sqlalchemy import Column, DateTime, Integer, String, Text, UniqueConstraint, create_engine
+from __future__ import annotations
+from __future__ import annotations
+from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, UniqueConstraint
 from sqlalchemy.orm import declarative_base, sessionmaker
+import datetime
+
+import os
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///jobs.db")
 
