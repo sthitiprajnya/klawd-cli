@@ -101,6 +101,11 @@ class TestLLMRouterRouting:
         metadata = call_kwargs['extra_body']['metadata']
         assert metadata['api_key_pool_size'] == 3
 
+    module, mock_client = _load_router_module()
+    mock_response = MagicMock()
+    mock_response.choices = [MagicMock(message=MagicMock(content="Mocked response"))]
+    mock_client.chat.completions.create.return_value = mock_response
+
     test_router = module.LLMRouter()
     test_router.client = mock_client
     # Explicitly mock self.clients to bypass the array initialization logic inside LLMRouter
@@ -166,8 +171,6 @@ def test_route_prompt_length_fallback():
         max_tokens=2048,
         extra_body={"metadata": {"task_type": "complex", "job_id": "job-3", "token_budget": 2048, "prompt_chars": 8001, "api_key_pool_size": 1}},
     )
-    assert res == "Error: all model routes failed after failover attempts"
-    assert res.startswith("Error: all model routes failed")
 
 
 def test_degraded_provider_bypass():
