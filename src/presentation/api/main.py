@@ -5,6 +5,7 @@ import contextlib
 import datetime
 import json
 import logging
+import os
 import uuid
 from typing import Literal
 
@@ -53,13 +54,13 @@ def _workflow_transition_sink(event: dict):
 
 # workflow.register_event_sink(_workflow_transition_sink)
 
+
 @app.on_event("startup")
 async def startup_policy_validation():
     execution_adapter.startup_validate()
 
 
 # Setup static files for frontend UI
-import os
 
 os.makedirs("src/presentation/static/css", exist_ok=True)
 app.mount("/static", StaticFiles(directory="src/presentation/static"), name="static")
