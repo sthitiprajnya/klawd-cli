@@ -2,9 +2,10 @@ import json
 import logging
 import subprocess
 import time
+from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Callable
+from typing import Any
 
 from src.application.orchestration.failure_classifier import classify_failure
 from src.domain.agents import AbsorberAgent, AuditorAgent, EngineerAgent, PlannerAgent, ReviewerAgent

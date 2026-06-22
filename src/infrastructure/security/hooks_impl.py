@@ -100,7 +100,7 @@ def _is_hexstrike_destructive(tool_name: str, params: dict[str, Any]) -> bool:
         return True
 
     capabilities = params.get("capability_tags") if isinstance(params, dict) else []
-    if isinstance(capabilities, (list, tuple, set)):
+    if isinstance(capabilities, list | tuple | set):
         normalized = {str(tag).lower() for tag in capabilities}
         if any(any(pattern in tag for pattern in HEXSTRIKE_DESTRUCTIVE_PATTERNS) for tag in normalized):
             return True
