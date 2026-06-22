@@ -64,11 +64,6 @@ pre {
     font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
 }
 
-pre:focus-visible {
-    outline: 2px solid var(--accent-blue);
-    outline-offset: 2px;
-}
-
 .job-list {
     display: flex;
     flex-direction: column;
