@@ -1,3 +1,6 @@
 ## 2024-11-20 - Accessible Truncated Text
 **Learning:** When visually truncating text in the UI (e.g., using ellipses like `...` via JavaScript `substring` or CSS `text-overflow`), it creates an accessibility issue where the full content is hidden from screen readers and mouse users.
 **Action:** Always pair visually truncated text with an accessible `title` attribute or a tooltip containing the full text to ensure accessibility and usability, as implemented for job IDs and tasks in `app.js`.
+## 2024-06-24 - Accessibility for Scrollable Containers
+**Learning:** Elements with scrollable regions (e.g., `overflow: auto` on `<pre>` tags) are not natively focusable but must be accessible to keyboard users so they can scroll the content. They require `tabindex="0"`, a visible focus state (like `:focus-visible`), and proper ARIA labeling (e.g., `aria-labelledby`). Furthermore, dynamically updated content like job queues or skill loading requires `aria-live="polite"` so screen readers announce updates correctly.
+**Action:** Always add `tabindex="0"`, `:focus-visible` CSS rules, and `aria-labelledby` or `aria-label` to containers with `overflow: auto`. Use `aria-live` for areas updated asynchronously by JavaScript.
