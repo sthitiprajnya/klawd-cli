@@ -45,7 +45,8 @@ class NemoClawExecutionAdapter:
             return NemoClawHealth(status="down", reason="policy_file_missing")
         return NemoClawHealth(status="up", reason="ok")
 
-    def execute(self, *, prompt: str, task_type: str, command: str | None = None) -> None:
+    def execute(self, *, task_type: str, command: str | None = None, prompt: str | None = None) -> None:
+        _ = prompt
         h = self.health()
         is_doc_task = task_type == "documentation"
         is_exec_task = task_type in {"coding", "complex", "fast", "reflection"}
