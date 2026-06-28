@@ -100,7 +100,7 @@ def _is_hexstrike_destructive(tool_name: str, params: dict[str, Any]) -> bool:
         return True
 
     capabilities = params.get("capability_tags") if isinstance(params, dict) else []
-    if isinstance(capabilities, (list, tuple, set)):
+    if isinstance(capabilities, list | tuple | set):
         normalized = {str(tag).lower() for tag in capabilities}
         if any(any(pattern in tag for pattern in HEXSTRIKE_DESTRUCTIVE_PATTERNS) for tag in normalized):
             return True
@@ -194,6 +194,8 @@ def h6_scan(raw_output: str) -> PRISMVerdict:
 
 
 def h7_scan(content: str, wing: str, agent_role: str) -> PRISMVerdict:
+    # Use content variable to bypass ARG001 Unused function argument error
+    _ = content
     if agent_role == "coder" and wing == "orchestrator-diary":
         return _mk_verdict(
             hook=HookPoint.H7_MEMORY_WRITE,
@@ -311,6 +313,7 @@ _notify_log = defaultdict(lambda: deque(maxlen=100))
 
 
 def h10_scan(severity: str, message: str) -> PRISMVerdict:
+    _ = message
     now = time.time()
     window = _notify_log[severity]
     while window and (now - window[0]) > 3600:
