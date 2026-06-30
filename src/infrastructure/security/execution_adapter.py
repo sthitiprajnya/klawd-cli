@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from pathlib import Path
 import re
 import shlex
 import subprocess
+from dataclasses import dataclass
+from pathlib import Path
 
 from src.infrastructure.security.hooks_impl import prism_check
-
 
 _UNSAFE_BG_PATTERN = re.compile(r"(?:^|\s)(?:&|nohup\b|disown\b|setsid\b)", re.IGNORECASE)
 
@@ -47,6 +46,7 @@ class NemoClawExecutionAdapter:
         return NemoClawHealth(status="up", reason="ok")
 
     def execute(self, *, prompt: str, task_type: str, command: str | None = None) -> None:
+        _ = prompt  # Explicitly mark as unused
         h = self.health()
         is_doc_task = task_type == "documentation"
         is_exec_task = task_type in {"coding", "complex", "fast", "reflection"}
@@ -66,7 +66,6 @@ class NemoClawExecutionAdapter:
                     reason=f"command_blocked:{verdict.reason}",
                     remediation="Use an allowed non-privileged command and retry.",
                 )
-
 
     def _tokenize_command(self, command: str) -> list[str]:
         # CVE-2025-35028 mitigation: canonicalize free-form command strings using
@@ -88,5 +87,6 @@ class NemoClawExecutionAdapter:
         argv = self._tokenize_command(command)
         # CVE-2025-35028 mitigation: never execute through a shell.
         return subprocess.Popen(argv, shell=False)
+
 
 execution_adapter = NemoClawExecutionAdapter()

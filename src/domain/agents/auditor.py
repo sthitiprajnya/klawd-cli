@@ -1,4 +1,7 @@
 from __future__ import annotations
+
+from src.settings import EXTERNAL_SKILL_SOURCES
+
 from .base import BaseAgent
 
 AUDITOR_PROMPT = """You are Delta, a benign code auditor.
@@ -10,21 +13,15 @@ class AuditorAgent(BaseAgent):
     def __init__(self):
         super().__init__(name="Delta", role="Auditor", system_prompt=AUDITOR_PROMPT)
 
-    def audit_codebase(self, code_artifact: str, audit_context: dict | None = None, openhuman_context: dict | None = None) -> str:
+    def audit_codebase(
+        self, code_artifact: str, audit_context: dict | None = None, openhuman_context: dict | None = None
+    ) -> str:
         prompt = f"Code Artifact:\n{code_artifact}"
         if audit_context:
             prompt += f"\n\nAudit Context: {audit_context}"
         if openhuman_context:
             prompt += f"\n\nOpenHuman Context: {openhuman_context}"
         return self.process(prompt, task_type="complex").strip()
-
-from src.settings import EXTERNAL_SKILL_SOURCES
-
-from .base import BaseAgent
-
-AUDITOR_PROMPT = """You are Delta, a benign code auditor.
-Analyze supplied code and metadata for safety, configuration hygiene, and compliance gaps.
-Return concise findings suitable for reviewer context."""
 
 
 class HexStrikeClient:
@@ -65,13 +62,17 @@ class CyberStrikeClient:
         }
 
 
-class AuditorAgent(BaseAgent):
-    def __init__(self, *, hexstrike_client: HexStrikeClient | None = None, cyberstrike_client: CyberStrikeClient | None = None):
+class EnhancedAuditorAgent(BaseAgent):
+    def __init__(
+        self, *, hexstrike_client: HexStrikeClient | None = None, cyberstrike_client: CyberStrikeClient | None = None
+    ):
         super().__init__(name="Dana", role="Auditor", system_prompt=AUDITOR_PROMPT)
         self.hexstrike_client = hexstrike_client or HexStrikeClient()
         self.cyberstrike_client = cyberstrike_client or CyberStrikeClient()
 
-    def audit_codebase(self, code_artifact: str, audit_context: dict | None = None, openhuman_context: dict | None = None) -> str:
+    def audit_codebase(
+        self, code_artifact: str, audit_context: dict | None = None, openhuman_context: dict | None = None
+    ) -> str:
         prompt = f"Code Artifact:\n{code_artifact}"
         if audit_context:
             prompt += f"\n\nAudit Context: {audit_context}"
@@ -99,7 +100,14 @@ class AuditorAgent(BaseAgent):
             prompt += f"\n\nOpenHuman Context: {openhuman_context}"
         return self.process(prompt, task_type="complex")
 
-    def iterate_audit(self, prior_report: str, feedback: str, target: str, framework: str = "CIS", openhuman_context: dict | None = None) -> str:
+    def iterate_audit(
+        self,
+        prior_report: str,
+        feedback: str,
+        target: str,
+        framework: str = "CIS",
+        openhuman_context: dict | None = None,
+    ) -> str:
         recon_context = self.get_benign_recon_context(target)
         compliance_context = self.get_compliance_benchmark_context(framework)
         prompt = (

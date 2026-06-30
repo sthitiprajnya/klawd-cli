@@ -3,7 +3,10 @@ import os
 from pathlib import Path
 
 from src.domain.arap.skill_parser import parse_skill_frontmatter, validate_skill_schema
-from src.infrastructure.registry.external_skill_ingestion import ExternalSkillIngestionError, ingest_external_skill_sources
+from src.infrastructure.registry.external_skill_ingestion import (
+    ExternalSkillIngestionError,
+    ingest_external_skill_sources,
+)
 
 logger = logging.getLogger("SkillManager")
 

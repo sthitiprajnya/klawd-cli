@@ -66,7 +66,14 @@ def h1_scan(prompt: str) -> PRISMVerdict:
 ROLE_TOOL_ALLOWLIST = {
     "coder": {"bash", "read_file", "write_file", "run_tests", "git_diff", "git_commit"},
     "absorber": {"git_clone", "wget", "npm_pack", "mempalace_bulk_import", "semgrep", "osv_query"},
-    "auditor": {"nmap_wrapper", "nuclei_wrapper", "hexstrike_scan", "hexstrike_run", "hexstrike_exploit_runner", "hexstrike_db_extract"},
+    "auditor": {
+        "nmap_wrapper",
+        "nuclei_wrapper",
+        "hexstrike_scan",
+        "hexstrike_run",
+        "hexstrike_exploit_runner",
+        "hexstrike_db_extract",
+    },
 }
 
 
@@ -85,7 +92,9 @@ def _has_destructive_confirmation(params: dict[str, Any]) -> bool:
 
     if isinstance(flags, dict):
         for key, value in flags.items():
-            if str(key).lower() in {"hexstrike_confirm_destructive", "x_hexstrike_confirm_destructive"} and str(value).strip().lower() in {"yes", "true", "1"}:
+            if str(key).lower() in {"hexstrike_confirm_destructive", "x_hexstrike_confirm_destructive"} and str(
+                value
+            ).strip().lower() in {"yes", "true", "1"}:
                 return True
 
     return False
@@ -100,7 +109,7 @@ def _is_hexstrike_destructive(tool_name: str, params: dict[str, Any]) -> bool:
         return True
 
     capabilities = params.get("capability_tags") if isinstance(params, dict) else []
-    if isinstance(capabilities, (list, tuple, set)):
+    if isinstance(capabilities, list | tuple | set):
         normalized = {str(tag).lower() for tag in capabilities}
         if any(any(pattern in tag for pattern in HEXSTRIKE_DESTRUCTIVE_PATTERNS) for tag in normalized):
             return True
@@ -194,6 +203,7 @@ def h6_scan(raw_output: str) -> PRISMVerdict:
 
 
 def h7_scan(content: str, wing: str, agent_role: str) -> PRISMVerdict:
+    _ = content  # Explicitly mark as unused
     if agent_role == "coder" and wing == "orchestrator-diary":
         return _mk_verdict(
             hook=HookPoint.H7_MEMORY_WRITE,
@@ -283,7 +293,9 @@ def h8_scan(skill_md: str, artifact: dict | None) -> PRISMVerdict:
             ("SKILL-POL-008", r"\bdeploy\b.*\b(malware|ransomware|keylogger)\b"),
             ("SKILL-POL-009", r"\bestablish\b.*\bc2\b"),
         ]
-        offensive_matches = [rule_id for rule_id, pattern in offensive_only_patterns if re.search(pattern, skill_md, re.IGNORECASE)]
+        offensive_matches = [
+            rule_id for rule_id, pattern in offensive_only_patterns if re.search(pattern, skill_md, re.IGNORECASE)
+        ]
         if offensive_matches:
             return _mk_verdict(
                 hook=HookPoint.H8_SKILL_REGISTRATION,
@@ -311,6 +323,7 @@ _notify_log = defaultdict(lambda: deque(maxlen=100))
 
 
 def h10_scan(severity: str, message: str) -> PRISMVerdict:
+    _ = message  # Explicitly mark as unused
     now = time.time()
     window = _notify_log[severity]
     while window and (now - window[0]) > 3600:
