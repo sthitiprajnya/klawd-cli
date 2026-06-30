@@ -1,4 +1,7 @@
 from __future__ import annotations
+
+from src.settings import EXTERNAL_SKILL_SOURCES
+
 from .base import BaseAgent
 
 AUDITOR_PROMPT = """You are Delta, a benign code auditor.
@@ -17,14 +20,6 @@ class AuditorAgent(BaseAgent):
         if openhuman_context:
             prompt += f"\n\nOpenHuman Context: {openhuman_context}"
         return self.process(prompt, task_type="complex").strip()
-
-from src.settings import EXTERNAL_SKILL_SOURCES
-
-from .base import BaseAgent
-
-AUDITOR_PROMPT = """You are Delta, a benign code auditor.
-Analyze supplied code and metadata for safety, configuration hygiene, and compliance gaps.
-Return concise findings suitable for reviewer context."""
 
 
 class HexStrikeClient:
@@ -65,7 +60,7 @@ class CyberStrikeClient:
         }
 
 
-class AuditorAgent(BaseAgent):
+class EnhancedAuditorAgent(BaseAgent):
     def __init__(self, *, hexstrike_client: HexStrikeClient | None = None, cyberstrike_client: CyberStrikeClient | None = None):
         super().__init__(name="Dana", role="Auditor", system_prompt=AUDITOR_PROMPT)
         self.hexstrike_client = hexstrike_client or HexStrikeClient()

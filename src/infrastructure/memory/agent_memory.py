@@ -111,14 +111,13 @@ class AgentMemory:
         if isinstance(result, str):
             result = [result]
         parsed = []
+        import contextlib
         for item in result:
             if isinstance(item, dict):
                 parsed.append(item)
             elif isinstance(item, str):
-                try:
+                with contextlib.suppress(json.JSONDecodeError):
                     parsed.append(json.loads(item))
-                except json.JSONDecodeError:
-                    pass
         return parsed
 
     def retrieve_lessons(self, context: str, top_k: int = 3) -> str:
@@ -141,8 +140,6 @@ class AgentMemory:
         except Exception as e:
             logger.warning("Retrieve failed: %s", e)
             return "No past lessons found."
-        except Exception:
-            return "Could not retrieve past lessons."
 
 
 agent_memory = AgentMemory()
