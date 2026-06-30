@@ -42,6 +42,7 @@ class ConnectionManager:
         for connection in self.active_connections:
             await connection.send_json(message)
 
+
 manager = ConnectionManager()
 
 
@@ -54,6 +55,7 @@ def _workflow_transition_sink(event: dict):
 
 
 # workflow.register_event_sink(_workflow_transition_sink)
+
 
 @app.on_event("startup")
 async def startup_policy_validation():
@@ -190,7 +192,9 @@ async def get_job(job_id: str, db: Session = Depends(get_db)):
 
 
 @app.get("/api/v1/jobs", response_model=JobListResponse)
-async def list_jobs(limit: int = Query(default=20, ge=1, le=200), offset: int = Query(default=0, ge=0), db: Session = Depends(get_db)):
+async def list_jobs(
+    limit: int = Query(default=20, ge=1, le=200), offset: int = Query(default=0, ge=0), db: Session = Depends(get_db)
+):
     total = db.query(JobEntry).count()
     jobs = db.query(JobEntry).order_by(JobEntry.created_at.desc()).offset(offset).limit(limit).all()
     return JobListResponse(jobs=[_to_job_response(j) for j in jobs], total=total, limit=limit, offset=offset)
@@ -205,7 +209,11 @@ async def health(db: Session = Depends(get_db)):
     except Exception:
         memory_status = "degraded"
     nemo = execution_adapter.health()
-    return {"status": "ok", "services": {"api": "up", "database": "up", "memory": memory_status, "nemoclaw": nemo.status}, "nemoclaw_reason": nemo.reason}
+    return {
+        "status": "ok",
+        "services": {"api": "up", "database": "up", "memory": memory_status, "nemoclaw": nemo.status},
+        "nemoclaw_reason": nemo.reason,
+    }
     return HealthResponse(status="ok", services={"api": "up", "database": "up", "memory": memory_status})
 
 
@@ -254,7 +262,12 @@ def execute_job(job_id: str, task: str):
                 job_id=job_id,
                 status=job.status,
                 error=job.error,
-                telemetry=JobTelemetry(model_used=job.model_used, tokens_used=job.tokens_used, latency_ms=job.latency_ms, threat_score=job.threat_score),
+                telemetry=JobTelemetry(
+                    model_used=job.model_used,
+                    tokens_used=job.tokens_used,
+                    latency_ms=job.latency_ms,
+                    threat_score=job.threat_score,
+                ),
             )
             asyncio.run(manager.broadcast(frame.model_dump()))
         except Exception as e:
@@ -262,7 +275,11 @@ def execute_job(job_id: str, task: str):
             job.status = "failed"
             job.error = str(e)
             job.completed_at = datetime.datetime.utcnow()
-            asyncio.run(manager.broadcast(JobUpdateFrame(type="job_update", job_id=job_id, status="failed", error=str(e)).model_dump()))
+            asyncio.run(
+                manager.broadcast(
+                    JobUpdateFrame(type="job_update", job_id=job_id, status="failed", error=str(e)).model_dump()
+                )
+            )
 
         db.commit()
     finally:

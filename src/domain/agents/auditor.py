@@ -13,7 +13,9 @@ class AuditorAgent(BaseAgent):
     def __init__(self):
         super().__init__(name="Delta", role="Auditor", system_prompt=AUDITOR_PROMPT)
 
-    def audit_codebase(self, code_artifact: str, audit_context: dict | None = None, openhuman_context: dict | None = None) -> str:
+    def audit_codebase(
+        self, code_artifact: str, audit_context: dict | None = None, openhuman_context: dict | None = None
+    ) -> str:
         prompt = f"Code Artifact:\n{code_artifact}"
         if audit_context:
             prompt += f"\n\nAudit Context: {audit_context}"
@@ -61,12 +63,16 @@ class CyberStrikeClient:
 
 
 class EnhancedAuditorAgent(BaseAgent):
-    def __init__(self, *, hexstrike_client: HexStrikeClient | None = None, cyberstrike_client: CyberStrikeClient | None = None):
+    def __init__(
+        self, *, hexstrike_client: HexStrikeClient | None = None, cyberstrike_client: CyberStrikeClient | None = None
+    ):
         super().__init__(name="Dana", role="Auditor", system_prompt=AUDITOR_PROMPT)
         self.hexstrike_client = hexstrike_client or HexStrikeClient()
         self.cyberstrike_client = cyberstrike_client or CyberStrikeClient()
 
-    def audit_codebase(self, code_artifact: str, audit_context: dict | None = None, openhuman_context: dict | None = None) -> str:
+    def audit_codebase(
+        self, code_artifact: str, audit_context: dict | None = None, openhuman_context: dict | None = None
+    ) -> str:
         prompt = f"Code Artifact:\n{code_artifact}"
         if audit_context:
             prompt += f"\n\nAudit Context: {audit_context}"
@@ -94,7 +100,14 @@ class EnhancedAuditorAgent(BaseAgent):
             prompt += f"\n\nOpenHuman Context: {openhuman_context}"
         return self.process(prompt, task_type="complex")
 
-    def iterate_audit(self, prior_report: str, feedback: str, target: str, framework: str = "CIS", openhuman_context: dict | None = None) -> str:
+    def iterate_audit(
+        self,
+        prior_report: str,
+        feedback: str,
+        target: str,
+        framework: str = "CIS",
+        openhuman_context: dict | None = None,
+    ) -> str:
         recon_context = self.get_benign_recon_context(target)
         compliance_context = self.get_compliance_benchmark_context(framework)
         prompt = (
