@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from pathlib import Path
 import re
 import shlex
 import subprocess
+from dataclasses import dataclass
+from pathlib import Path
 
 from src.infrastructure.security.hooks_impl import prism_check
-
 
 _UNSAFE_BG_PATTERN = re.compile(r"(?:^|\s)(?:&|nohup\b|disown\b|setsid\b)", re.IGNORECASE)
 
