@@ -101,21 +101,6 @@ class TestLLMRouterRouting:
         metadata = call_kwargs['extra_body']['metadata']
         assert metadata['api_key_pool_size'] == 3
 
-    test_router = module.LLMRouter()
-    test_router.client = mock_client
-    # Explicitly mock self.clients to bypass the array initialization logic inside LLMRouter
-    test_router.clients = [mock_client]
-    res_fast = test_router.route("Help", task_type="fast", job_id="job-1", token_budget=1024)
-
-    assert res_fast == "Mocked response"
-    mock_client.chat.completions.create.assert_called_with(
-        model="nim-coder",
-        messages=[{"role": "user", "content": "Help"}],
-        temperature=0.2,
-        max_tokens=1024,
-        extra_body={"metadata": {"task_type": "fast", "job_id": "job-1", "token_budget": 1024, "prompt_chars": 4, "api_key_pool_size": 1}},
-    )
-
 def test_route_with_system_prompt():
     module, mock_client = _load_router_module()
     mock_response = MagicMock()
