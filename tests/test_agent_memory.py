@@ -144,4 +144,4 @@ def test_retrieve_lessons_exception(agent_memory, monkeypatch):
     monkeypatch.setattr("src.infrastructure.memory.agent_memory.httpx.post", fake_post)
 
     lessons = agent_memory.retrieve_lessons("context")
-    assert lessons == "Could not retrieve past lessons."
+    assert lessons == "No past lessons found."
