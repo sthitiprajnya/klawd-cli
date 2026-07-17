@@ -57,7 +57,7 @@ class ExternalRepoIngestor:
         self._run_git(["clone", "--no-checkout", repo.repo_url, str(target)], repo)
         self._run_git(["-C", str(target), "checkout", repo.pinned_ref], repo)
 
-        scan_root = target / repo.subdir if repo.subdir else target
+        scan_root = target / repo.subdir if getattr(repo, "subdir", None) else target
         skill_files = sorted(scan_root.rglob("SKILL.md")) if scan_root.exists() else []
         if not skill_files:
             raise SkillIngestionError(
