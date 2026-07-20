@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from pathlib import Path
 import re
 import shlex
 import subprocess
+from dataclasses import dataclass
+from pathlib import Path
 
 from src.infrastructure.security.hooks_impl import prism_check
-
 
 _UNSAFE_BG_PATTERN = re.compile(r"(?:^|\s)(?:&|nohup\b|disown\b|setsid\b)", re.IGNORECASE)
 
@@ -46,7 +45,7 @@ class NemoClawExecutionAdapter:
             return NemoClawHealth(status="down", reason="policy_file_missing")
         return NemoClawHealth(status="up", reason="ok")
 
-    def execute(self, *, prompt: str, task_type: str, command: str | None = None) -> None:
+    def execute(self, *, _prompt: str, task_type: str, command: str | None = None) -> None:
         h = self.health()
         is_doc_task = task_type == "documentation"
         is_exec_task = task_type in {"coding", "complex", "fast", "reflection"}

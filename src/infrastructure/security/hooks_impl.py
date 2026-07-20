@@ -100,7 +100,7 @@ def _is_hexstrike_destructive(tool_name: str, params: dict[str, Any]) -> bool:
         return True
 
     capabilities = params.get("capability_tags") if isinstance(params, dict) else []
-    if isinstance(capabilities, (list, tuple, set)):
+    if isinstance(capabilities, list | tuple | set):
         normalized = {str(tag).lower() for tag in capabilities}
         if any(any(pattern in tag for pattern in HEXSTRIKE_DESTRUCTIVE_PATTERNS) for tag in normalized):
             return True
@@ -193,7 +193,7 @@ def h6_scan(raw_output: str) -> PRISMVerdict:
     return _mk_verdict(hook=HookPoint.H6_LLM_OUTPUT_RAW, allow=True, reason=HookReason.CLEAN)
 
 
-def h7_scan(content: str, wing: str, agent_role: str) -> PRISMVerdict:
+def h7_scan(_content: str, wing: str, agent_role: str) -> PRISMVerdict:
     if agent_role == "coder" and wing == "orchestrator-diary":
         return _mk_verdict(
             hook=HookPoint.H7_MEMORY_WRITE,
@@ -310,7 +310,7 @@ def h9_scan(parent_agent_id: str, requested_count: int = 1) -> PRISMVerdict:
 _notify_log = defaultdict(lambda: deque(maxlen=100))
 
 
-def h10_scan(severity: str, message: str) -> PRISMVerdict:
+def h10_scan(severity: str, _message: str) -> PRISMVerdict:
     now = time.time()
     window = _notify_log[severity]
     while window and (now - window[0]) > 3600:
