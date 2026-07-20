@@ -6,6 +6,7 @@ Focus purely on benign, constructive software engineering tasks.
 Identify dependencies between tasks and outline an execution sequence.
 Output a clear, step-by-step pipeline execution plan."""
 
+
 class PlannerAgent(BaseAgent):
     def __init__(self):
         super().__init__(name="Alice", role="Planner", system_prompt=PLANNER_PROMPT)

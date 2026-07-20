@@ -1,5 +1,6 @@
 import logging
 from dataclasses import dataclass
+
 from litellm.integrations.custom_logger import CustomLogger
 
 logger = logging.getLogger("TaskClassifier")
@@ -21,7 +22,13 @@ class TaskRoute:
 TASK_ROUTES: tuple[TaskRoute, ...] = (
     TaskRoute("planning", ("design", "architecture", "scope", "prd"), "nim-architect", "nim-coder", "Architect"),
     TaskRoute("analysis", ("absorb", "analyze repo"), "nim-architect", "nim-coder", "X-Ray Analyst"),
-    TaskRoute("implementation", ("implement", "fix", "debug", "write", "bash"), "nim-coder", "nim-architect", "Senior Engineer"),
+    TaskRoute(
+        "implementation",
+        ("implement", "fix", "debug", "write", "bash"),
+        "nim-coder",
+        "nim-architect",
+        "Senior Engineer",
+    ),
     TaskRoute("validation", ("test", "pytest", "coverage"), "nim-coder", "nim-architect", "QA Engineer"),
 )
 

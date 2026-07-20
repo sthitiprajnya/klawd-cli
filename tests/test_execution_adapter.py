@@ -10,7 +10,7 @@ def test_allowed_command_path(tmp_path: Path):
     policy.write_text("allow: true\n")
     adapter = NemoClawExecutionAdapter(policy_file=str(policy))
 
-    adapter.execute(prompt="echo hello", task_type="coding", command="echo hello")
+    adapter.execute(_prompt="echo hello", task_type="coding", command="echo hello")
 
 
 def test_blocked_command_path(tmp_path: Path):
@@ -19,7 +19,7 @@ def test_blocked_command_path(tmp_path: Path):
     adapter = NemoClawExecutionAdapter(policy_file=str(policy))
 
     with pytest.raises(PolicyRejectionError) as exc:
-        adapter.execute(prompt="sudo whoami", task_type="coding", command="sudo whoami")
+        adapter.execute(_prompt="sudo whoami", task_type="coding", command="sudo whoami")
 
     assert exc.value.payload["reason"].startswith("command_blocked")
 
@@ -29,9 +29,9 @@ def test_sandbox_down_degraded_mode_allows_documentation_only(tmp_path: Path):
     adapter = NemoClawExecutionAdapter(policy_file=str(missing_policy))
 
     with pytest.raises(PolicyRejectionError):
-        adapter.execute(prompt="run python", task_type="coding", command="python main.py")
+        adapter.execute(_prompt="run python", task_type="coding", command="python main.py")
 
-    adapter.execute(prompt="Write docs", task_type="documentation")
+    adapter.execute(_prompt="Write docs", task_type="documentation")
 
 
 def test_spawn_command_uses_shlex_split_and_shell_false(tmp_path: Path, monkeypatch):
