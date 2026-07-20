@@ -26,7 +26,9 @@ class HermesLearningCoordinator:
         self._seen_outcome_ids: set[str] = set()
         self._provenance: dict[str, dict[str, Any]] = {}
 
-    def build_candidate_from_outcomes(self, *, workflow_outcomes: list[dict[str, Any]], model_metadata: dict[str, Any], reviewer_verdict: str) -> LearningCandidate | None:
+    def build_candidate_from_outcomes(
+        self, *, workflow_outcomes: list[dict[str, Any]], model_metadata: dict[str, Any], reviewer_verdict: str
+    ) -> LearningCandidate | None:
         deduped = [o for o in workflow_outcomes if o.get("id") and o["id"] not in self._seen_outcome_ids]
         if not deduped:
             return None
@@ -57,18 +59,61 @@ class HermesLearningCoordinator:
             "reviewer_verdict": reviewer_verdict,
             "rollback_pointer": candidate.rollback_pointer,
         }
-        self.audit_logger({"event": "learning_candidate_created", "candidate_id": candidate.candidate_id, "candidate_version": candidate.candidate_version, "job_id": sample.get("job_id"), "occurred_at": created_at})
+        self.audit_logger(
+            {
+                "event": "learning_candidate_created",
+                "candidate_id": candidate.candidate_id,
+                "candidate_version": candidate.candidate_version,
+                "job_id": sample.get("job_id"),
+                "occurred_at": created_at,
+            }
+        )
         return candidate
 
-    def promote_candidate(self, *, candidate: LearningCandidate, eval_input: EvalInputContract, recent_job_outcomes: list[dict[str, Any]], reviewer_artifacts: list[dict[str, Any]], held_out_score: float, safety_metrics: dict[str, float], baseline_safety_metrics: dict[str, float], retry_budget_remaining: int) -> bool:
-        promoted = self.registry.try_promote(candidate_version=candidate.candidate_version, recent_job_outcomes=recent_job_outcomes, reviewer_artifacts=reviewer_artifacts, held_out_score=held_out_score, eval_input=eval_input, safety_metrics=safety_metrics, baseline_safety_metrics=baseline_safety_metrics, retry_budget_remaining=retry_budget_remaining)
-        self.audit_logger({"event": "learning_candidate_promoted" if promoted else "learning_candidate_rejected", "candidate_id": candidate.candidate_id, "candidate_version": candidate.candidate_version, "job_id": candidate.candidate_id, "occurred_at": dt.datetime.now(dt.timezone.utc).isoformat()})
+    def promote_candidate(
+        self,
+        *,
+        candidate: LearningCandidate,
+        eval_input: EvalInputContract,
+        recent_job_outcomes: list[dict[str, Any]],
+        reviewer_artifacts: list[dict[str, Any]],
+        held_out_score: float,
+        safety_metrics: dict[str, float],
+        baseline_safety_metrics: dict[str, float],
+        retry_budget_remaining: int,
+    ) -> bool:
+        promoted = self.registry.try_promote(
+            candidate_version=candidate.candidate_version,
+            recent_job_outcomes=recent_job_outcomes,
+            reviewer_artifacts=reviewer_artifacts,
+            held_out_score=held_out_score,
+            eval_input=eval_input,
+            safety_metrics=safety_metrics,
+            baseline_safety_metrics=baseline_safety_metrics,
+            retry_budget_remaining=retry_budget_remaining,
+        )
+        self.audit_logger(
+            {
+                "event": "learning_candidate_promoted" if promoted else "learning_candidate_rejected",
+                "candidate_id": candidate.candidate_id,
+                "candidate_version": candidate.candidate_version,
+                "job_id": candidate.candidate_id,
+                "occurred_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+            }
+        )
         return promoted
 
     def rollback_candidate(self, *, candidate: LearningCandidate, reason: str) -> None:
         if candidate.rollback_pointer:
             self.registry.rollback(to_version=candidate.rollback_pointer, reason=reason)
-        self.audit_logger({"event": "learning_candidate_rolled_back", "candidate_id": candidate.candidate_id, "candidate_version": candidate.candidate_version, "occurred_at": dt.datetime.now(dt.timezone.utc).isoformat()})
+        self.audit_logger(
+            {
+                "event": "learning_candidate_rolled_back",
+                "candidate_id": candidate.candidate_id,
+                "candidate_version": candidate.candidate_version,
+                "occurred_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+            }
+        )
 
     def get_provenance(self, candidate_id: str) -> dict[str, Any]:
         return self._provenance[candidate_id]

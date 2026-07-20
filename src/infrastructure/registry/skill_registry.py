@@ -46,12 +46,14 @@ def parse_skill_metadata(path: str, adapter_type: str | None = None, repo: str =
 
 class HiClawClient:
     def nacos_register(self, service_name: str, metadata: dict, retries: int = 3, retry_delay: float = 0.5) -> bool:
-        query_params = urllib.parse.urlencode({
-            "serviceName": service_name,
-            "ip": "127.0.0.1",
-            "port": 8000,
-            "ephemeral": "false",
-        })
+        query_params = urllib.parse.urlencode(
+            {
+                "serviceName": service_name,
+                "ip": "127.0.0.1",
+                "port": 8000,
+                "ephemeral": "false",
+            }
+        )
         url = f"http://hiclaw-manager:18789/nacos/v1/ns/instance?{query_params}"
         for attempt in range(1, retries + 1):
             try:
@@ -114,7 +116,10 @@ class SkillHotReloader(FileSystemEventHandler):
     def _reload_skill(self, path: str, action: str):
         metadata = parse_skill_metadata(path)
         if not metadata or metadata.get("error"):
-            logger.warning("Skill skipped due to invalid metadata", extra={"skill_path": path, "action": action, "metadata": metadata})
+            logger.warning(
+                "Skill skipped due to invalid metadata",
+                extra={"skill_path": path, "action": action, "metadata": metadata},
+            )
             return
 
         skill_name = metadata["name"]
@@ -166,6 +171,8 @@ async def _main():
         observer.stop()
         observer.join()
 
+
 if __name__ == "__main__":
     import asyncio
+
     asyncio.run(_main())
