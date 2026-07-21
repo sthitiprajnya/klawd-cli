@@ -6,3 +6,4 @@ __pycache__/
 *.db
 src/infrastructure/skills/*.py
 tests/test_skills/*.py
+.coverage
