@@ -1,6 +1,6 @@
 from src.application.hermes.learning_loop import HermesLearningCoordinator
-from src.application.prompt_registry import EvalInputContract, PromptVersionRegistry
 from src.application.orchestration import failure_classifier
+from src.application.prompt_registry import EvalInputContract, PromptVersionRegistry
 
 
 def test_duplicate_outcome_suppression():
