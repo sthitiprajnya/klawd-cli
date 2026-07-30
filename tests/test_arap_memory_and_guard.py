@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 import httpx
 
 from src.application.arap.circular_guard import CircularDependencyGuard
-from src.domain.arap.dedup import dedup_decision, compute_overlap
+from src.domain.arap.dedup import compute_overlap, dedup_decision
 
 
 def test_dedup_threshold_edges(monkeypatch):
