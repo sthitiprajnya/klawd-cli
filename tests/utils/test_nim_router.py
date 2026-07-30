@@ -1,6 +1,7 @@
-import pytest
 from unittest.mock import MagicMock
+
 from omni_agent.utils.nim_router import NIMRouter
+
 
 def test_nim_router_prompt_length_fallback():
     router = NIMRouter()

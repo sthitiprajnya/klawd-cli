@@ -3,9 +3,8 @@ from types import SimpleNamespace
 
 from src.domain.arap.skill_parser import parse_skill_frontmatter, validate_skill_schema
 from src.domain.skills import SkillManager
-from src.infrastructure.registry.skill_registry import parse_skill_metadata
-from src.infrastructure.registry.skill_registry import HiClawClient, SkillHotReloader
 from src.infrastructure.registry.skill_adapters import SkillAdapterRegistry, SkillProvenanceManifest, adapt_and_validate
+from src.infrastructure.registry.skill_registry import HiClawClient, SkillHotReloader, parse_skill_metadata
 
 
 def _valid_skill_md() -> str:
@@ -255,7 +254,10 @@ def test_parse_skill_metadata_with_adapter_type_includes_provenance():
 
 
 def test_external_ingestion_requires_pinned_sha(monkeypatch):
-    from src.infrastructure.registry.external_skill_ingestion import ExternalSkillIngestionError, ingest_external_skill_sources
+    from src.infrastructure.registry.external_skill_ingestion import (
+        ExternalSkillIngestionError,
+        ingest_external_skill_sources,
+    )
 
     monkeypatch.setattr("src.infrastructure.registry.external_skill_ingestion.EXTERNAL_SKILL_SOURCES", [])
     # No configured sources should be a no-op.
