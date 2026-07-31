@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import datetime
 import json
 import logging
@@ -46,10 +47,8 @@ manager = ConnectionManager()
 
 
 def _workflow_transition_sink(event: dict):
-    try:
+    with contextlib.suppress(Exception):
         asyncio.run(manager.broadcast(event))
-    except Exception:
-        pass
 
 
 # workflow.register_event_sink(_workflow_transition_sink)
