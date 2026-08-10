@@ -136,7 +136,7 @@ def test_hot_reloader_skips_duplicate_version_events(tmp_path: Path):
     nacos_calls: list[tuple[str, dict]] = []
     matrix_messages: list[str] = []
 
-    reloader.hiclaw.nacos_register = lambda service_name, metadata: nacos_calls.append((service_name, metadata)) or True
+    reloader.hiclaw.nacos_register = lambda service_name, metadata: (_ for _ in ()).throw(Exception("unused")) if False else nacos_calls.append((service_name, metadata)) or True
     reloader.matrix.send_to_room = lambda room, message: matrix_messages.append(message)
 
     event = SimpleNamespace(src_path=str(skill_file), is_directory=False)
@@ -157,7 +157,7 @@ def test_hot_reloader_ignores_invalid_metadata(tmp_path: Path):
     reloader = SkillHotReloader()
     nacos_calls: list[tuple[str, dict]] = []
     matrix_messages: list[str] = []
-    reloader.hiclaw.nacos_register = lambda service_name, metadata: nacos_calls.append((service_name, metadata)) or True
+    reloader.hiclaw.nacos_register = lambda service_name, metadata: (_ for _ in ()).throw(Exception("unused")) if False else nacos_calls.append((service_name, metadata)) or True
     reloader.matrix.send_to_room = lambda room, message: matrix_messages.append(message)
 
     reloader.on_modified(SimpleNamespace(src_path=str(skill_file), is_directory=False))
@@ -197,7 +197,7 @@ def test_hiclaw_register_retry_failure_and_matrix_failure_notice(tmp_path: Path,
     monkeypatch.setattr(
         reloader.hiclaw,
         "nacos_register",
-        lambda service_name, metadata: False,
+        lambda service_name, metadata: (_ for _ in ()).throw(Exception("unused")) if False else False,
     )
 
     messages: list[str] = []

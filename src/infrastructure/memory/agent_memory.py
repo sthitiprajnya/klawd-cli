@@ -140,8 +140,6 @@ class AgentMemory:
         except Exception as e:
             logger.warning("Retrieve failed: %s", e)
             return "No past lessons found."
-        except Exception:
-            return "No past lessons found."
 
 
 agent_memory = AgentMemory()

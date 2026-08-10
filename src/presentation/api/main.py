@@ -5,6 +5,7 @@ import contextlib
 import datetime
 import json
 import logging
+import os
 import uuid
 from typing import Literal
 
@@ -59,8 +60,6 @@ async def startup_policy_validation():
 
 
 # Setup static files for frontend UI
-import os
-
 os.makedirs("src/presentation/static/css", exist_ok=True)
 app.mount("/static", StaticFiles(directory="src/presentation/static"), name="static")
 

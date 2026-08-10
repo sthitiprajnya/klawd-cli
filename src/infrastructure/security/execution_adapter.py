@@ -46,6 +46,7 @@ class NemoClawExecutionAdapter:
         return NemoClawHealth(status="up", reason="ok")
 
     def execute(self, *, prompt: str, task_type: str, command: str | None = None) -> None:
+        _ = prompt  # unused
         h = self.health()
         is_doc_task = task_type == "documentation"
         is_exec_task = task_type in {"coding", "complex", "fast", "reflection"}

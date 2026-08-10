@@ -194,6 +194,7 @@ def h6_scan(raw_output: str) -> PRISMVerdict:
 
 
 def h7_scan(content: str, wing: str, agent_role: str) -> PRISMVerdict:
+    _ = content
     if agent_role == "coder" and wing == "orchestrator-diary":
         return _mk_verdict(
             hook=HookPoint.H7_MEMORY_WRITE,
@@ -311,6 +312,7 @@ _notify_log = defaultdict(lambda: deque(maxlen=100))
 
 
 def h10_scan(severity: str, message: str) -> PRISMVerdict:
+    _ = message
     now = time.time()
     window = _notify_log[severity]
     while window and (now - window[0]) > 3600:
