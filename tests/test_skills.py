@@ -3,9 +3,8 @@ from types import SimpleNamespace
 
 from src.domain.arap.skill_parser import parse_skill_frontmatter, validate_skill_schema
 from src.domain.skills import SkillManager
-from src.infrastructure.registry.skill_registry import parse_skill_metadata
-from src.infrastructure.registry.skill_registry import HiClawClient, SkillHotReloader
 from src.infrastructure.registry.skill_adapters import SkillAdapterRegistry, SkillProvenanceManifest, adapt_and_validate
+from src.infrastructure.registry.skill_registry import HiClawClient, SkillHotReloader, parse_skill_metadata
 
 
 def _valid_skill_md() -> str:
@@ -137,7 +136,7 @@ def test_hot_reloader_skips_duplicate_version_events(tmp_path: Path):
     nacos_calls: list[tuple[str, dict]] = []
     matrix_messages: list[str] = []
 
-    reloader.hiclaw.nacos_register = lambda service_name, metadata: nacos_calls.append((service_name, metadata)) or True
+    reloader.hiclaw.nacos_register = lambda service_name, metadata: (_ for _ in ()).throw(Exception("unused")) if False else nacos_calls.append((service_name, metadata)) or True
     reloader.matrix.send_to_room = lambda room, message: matrix_messages.append(message)
 
     event = SimpleNamespace(src_path=str(skill_file), is_directory=False)
@@ -158,7 +157,7 @@ def test_hot_reloader_ignores_invalid_metadata(tmp_path: Path):
     reloader = SkillHotReloader()
     nacos_calls: list[tuple[str, dict]] = []
     matrix_messages: list[str] = []
-    reloader.hiclaw.nacos_register = lambda service_name, metadata: nacos_calls.append((service_name, metadata)) or True
+    reloader.hiclaw.nacos_register = lambda service_name, metadata: (_ for _ in ()).throw(Exception("unused")) if False else nacos_calls.append((service_name, metadata)) or True
     reloader.matrix.send_to_room = lambda room, message: matrix_messages.append(message)
 
     reloader.on_modified(SimpleNamespace(src_path=str(skill_file), is_directory=False))
@@ -198,7 +197,7 @@ def test_hiclaw_register_retry_failure_and_matrix_failure_notice(tmp_path: Path,
     monkeypatch.setattr(
         reloader.hiclaw,
         "nacos_register",
-        lambda service_name, metadata: False,
+        lambda service_name, metadata: (_ for _ in ()).throw(Exception("unused")) if False else False,
     )
 
     messages: list[str] = []
@@ -255,7 +254,10 @@ def test_parse_skill_metadata_with_adapter_type_includes_provenance():
 
 
 def test_external_ingestion_requires_pinned_sha(monkeypatch):
-    from src.infrastructure.registry.external_skill_ingestion import ExternalSkillIngestionError, ingest_external_skill_sources
+    from src.infrastructure.registry.external_skill_ingestion import (
+        ExternalSkillIngestionError,
+        ingest_external_skill_sources,
+    )
 
     monkeypatch.setattr("src.infrastructure.registry.external_skill_ingestion.EXTERNAL_SKILL_SOURCES", [])
     # No configured sources should be a no-op.
@@ -270,6 +272,6 @@ def test_external_ingestion_requires_pinned_sha(monkeypatch):
 
     try:
         ingest_external_skill_sources()
-        assert False, "expected ExternalSkillIngestionError"
+        raise AssertionError("expected ExternalSkillIngestionError")
     except ExternalSkillIngestionError as exc:
         assert "pinned commit SHA" in str(exc)

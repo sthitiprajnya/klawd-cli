@@ -62,7 +62,7 @@ def test_missing_skill_md(monkeypatch, tmp_path: Path):
 
     try:
         ingestor.ingest(repo_cfg)
-        assert False, "expected SkillIngestionError"
+        raise AssertionError("expected SkillIngestionError")
     except SkillIngestionError as exc:
         assert exc.code == "MISSING_SKILL_MD"
 
@@ -81,7 +81,7 @@ def test_invalid_frontmatter(monkeypatch, tmp_path: Path):
 
     try:
         ingestor.ingest(repo_cfg)
-        assert False, "expected SkillIngestionError"
+        raise AssertionError("expected SkillIngestionError")
     except SkillIngestionError as exc:
         assert exc.code == "INVALID_SKILL_METADATA"
 
@@ -92,7 +92,7 @@ def test_reject_non_pinned_ref():
 
     try:
         ingestor.ingest(repo_cfg)
-        assert False, "expected SkillIngestionError"
+        raise AssertionError("expected SkillIngestionError")
     except SkillIngestionError as exc:
         assert exc.code == "NON_PINNED_REF"
 

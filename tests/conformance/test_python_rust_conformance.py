@@ -1,5 +1,5 @@
-import pytest
 import httpx
+import pytest
 
 from src.infrastructure.rust_workers.client import RustWorkerClient
 from src.infrastructure.rust_workers.errors import RustWorkerTimeoutError, RustWorkerValidationError

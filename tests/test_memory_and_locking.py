@@ -3,8 +3,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from src.infrastructure.memory.agent_memory import AgentMemory
 from src.infrastructure.memory import optimistic_lock as lock
+from src.infrastructure.memory.agent_memory import AgentMemory
 
 
 def test_successful_unified_write(monkeypatch):
@@ -53,11 +53,11 @@ def test_successful_write_after_conflict(monkeypatch):
     monkeypatch.setattr(lock.agentmemory_client, "store_memory", lambda m: stored.setdefault("v", m))
     monkeypatch.setattr(lock.time, "sleep", lambda _s: None)
 
-    expected = lock.hashlib.sha256("baseline".encode()).hexdigest()[:16]
+    expected = lock.hashlib.sha256(b"baseline").hexdigest()[:16]
     new_hash = lock.write_with_version_check("w", "r", "d", "new", expected, max_retries=2, backoff_seconds=0)
 
-    assert new_hash == lock.hashlib.sha256("new".encode()).hexdigest()[:16]
-    assert "[w:r:d] new" == stored["v"]
+    assert new_hash == lock.hashlib.sha256(b"new").hexdigest()[:16]
+    assert stored["v"] == "[w:r:d] new"
 
 
 def test_non_fatal_persistence_failure(monkeypatch):
