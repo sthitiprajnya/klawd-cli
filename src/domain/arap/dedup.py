@@ -1,5 +1,5 @@
-from sentence_transformers import SentenceTransformer, util
 import httpx
+from sentence_transformers import SentenceTransformer, util
 
 from src.domain.arap.skill_parser import parse_skill_sections
 from src.settings import settings
