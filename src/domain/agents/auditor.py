@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from .base import BaseAgent
 
 AUDITOR_PROMPT = """You are Delta, a benign code auditor.
