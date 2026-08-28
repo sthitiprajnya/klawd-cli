@@ -1,4 +1,3 @@
-import typing
 import datetime as dt
 import hashlib
 from dataclasses import dataclass
@@ -20,7 +19,6 @@ class LearningCandidate:
 
 
 class HermesLearningCoordinator:
-    def __init__(self, *, registry: PromptVersionRegistry, audit_logger: typing.Callable | None = None):
     def __init__(self, *, registry: PromptVersionRegistry, audit_logger: Callable | None = None):
         self.registry = registry
         self.audit_logger = audit_logger or (lambda _event: None)
