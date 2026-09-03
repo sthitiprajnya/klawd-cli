@@ -1,7 +1,7 @@
 import logging
 import os
 import time
-from abc import ABC
+from abc import ABC, abstractmethod
 from typing import Any, TypedDict
 
 import httpx
@@ -107,6 +107,9 @@ class BaseAgent(ABC):
         dynamic_context = self._get_dynamic_context()
         full_system_prompt = f"{self.base_system_prompt}{dynamic_context}"
 
-        full_prompt = f"System: {full_system_prompt}\n\nUser: {prompt}"
-        execution_adapter.execute(prompt=full_prompt, task_type=task_type, command=prompt)
+        execution_adapter.execute(task_type=task_type, command=prompt)
         return llm_router.route(prompt, task_type=task_type, system_prompt=full_system_prompt)
+
+    @abstractmethod
+    def audit_codebase(self, code_artifact: str, audit_context: dict | None = None, openhuman_context: dict | None = None) -> str:
+        pass

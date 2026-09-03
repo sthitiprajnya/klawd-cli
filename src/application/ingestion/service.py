@@ -1,6 +1,9 @@
 import logging
+from typing import TYPE_CHECKING
 
-from src.domain.skills import SkillManager
+if TYPE_CHECKING:
+    from src.domain.skills import SkillManager
+
 from src.infrastructure.ingestion.repo_ingestor import ExternalRepoIngestor, SkillIngestionError
 from src.settings import ExternalSkillRepo, settings
 
@@ -29,7 +32,7 @@ class ExternalSkillIngestionService:
         return results
 
 
-def ingest_external_skills_into_manager(skill_manager: SkillManager) -> list[dict]:
+def ingest_external_skills_into_manager(skill_manager: 'SkillManager') -> list[dict]:
     _ = skill_manager
     service = ExternalSkillIngestionService()
     return service.ingest_all()

@@ -1,10 +1,11 @@
-import os
-import time
-import threading
-import redis
-import httpx
-import uuid
 import logging
+import os
+import threading
+import time
+import uuid
+
+import httpx
+import redis
 
 from src.infrastructure.rust_workers import RustWorkerClient, RustWorkerError
 
@@ -89,7 +90,7 @@ class ThreadParker:
             statuses = rust_workers.get_provider_status(model_pool, configured_keys)
         except RustWorkerError as exc:
             logger.warning("Rust prober unavailable, using Redis-only fallback: %s", exc)
-            statuses = {k: True for k in configured_keys}
+            statuses = dict.fromkeys(configured_keys, True)
 
         for key in configured_keys:
             cooldown_key = f"litellm:cooldown:{model_pool}:{key}"
