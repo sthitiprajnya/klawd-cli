@@ -14,3 +14,6 @@ class PlannerAgent(BaseAgent):
         if openhuman_context:
             request = f"{request}\n\nOpenHuman Context: {openhuman_context}"
         return self.process(request, task_type="fast")
+
+    def audit_codebase(self, code_artifact: str, audit_context: dict | None = None, openhuman_context: dict | None = None) -> str:
+        pass

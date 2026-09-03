@@ -7,6 +7,9 @@ class DummyAgent(BaseAgent):
     def __init__(self):
         super().__init__(name="Dummy", role="Test", system_prompt="Base")
 
+    def audit_codebase(self, code_artifact: str, audit_context: dict | None = None, openhuman_context: dict | None = None) -> str:
+        pass
+
 
 def test_successful_context_retrieval(monkeypatch):
     class Response:
