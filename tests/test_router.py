@@ -183,6 +183,10 @@ def test_route_prompt_length_fallback():
         extra_body={"metadata": {"task_type": "complex", "job_id": "job-3", "token_budget": 2048, "prompt_chars": 8001, "api_key_pool_size": 1}},
     )
 
+    mock_client.chat.completions.create.side_effect = Exception("provider unavailable")
+    res_error = test_router.route(long_prompt, task_type="coding", job_id="job-3", token_budget=2048)
+    assert res_error == "Error: all model routes failed after failover attempts"
+
 
 def test_degraded_provider_bypass():
     sys.modules["redis"] = SimpleNamespace(Redis=MagicMock(return_value=MagicMock()))
