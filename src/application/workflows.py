@@ -61,10 +61,18 @@ class OmniWorkflow:
 
     def _run_cyberstrike_bolt_checks(self, code_artifact: str) -> list[dict[str, Any]]:
         try:
-            result = subprocess.run(["cyberstrike-bolt", "audit", "--format", "json"], input=code_artifact.encode(), capture_output=True, timeout=60)
+            result = subprocess.run(
+                ["cyberstrike-bolt", "audit", "--format", "json"],
+                input=code_artifact.encode(),
+                capture_output=True,
+                timeout=60,
+            )
             payload = json.loads(result.stdout.decode() or "{}")
             checks = payload.get("checks", [])
-            return [{"tool": "cyberstrike-bolt", "status": c.get("status", "unknown"), "rule": c.get("rule", "unknown")} for c in checks]
+            return [
+                {"tool": "cyberstrike-bolt", "status": c.get("status", "unknown"), "rule": c.get("rule", "unknown")}
+                for c in checks
+            ]
         except Exception as exc:
             return [{"tool": "cyberstrike-bolt", "status": "error", "message": str(exc)}]
 
@@ -73,7 +81,11 @@ class OmniWorkflow:
             return {"enabled": False, "findings": []}
         target = audit_context.get("recon_target", "local")
         try:
-            result = subprocess.run(["hexstrike-safe", "recon", "metadata", "--target", str(target), "--format", "json"], capture_output=True, timeout=60)
+            result = subprocess.run(
+                ["hexstrike-safe", "recon", "metadata", "--target", str(target), "--format", "json"],
+                capture_output=True,
+                timeout=60,
+            )
             payload = json.loads(result.stdout.decode() or "{}")
             return {"enabled": True, "findings": payload.get("findings", []), "target": target}
         except Exception as exc:
@@ -81,9 +93,17 @@ class OmniWorkflow:
 
     def _run_static_review_hooks(self, code: str) -> list[dict[str, Any]]:
         try:
-            result = subprocess.run(["semgrep", "--config=p/security-audit", "--json", "--quiet", "-"], input=code.encode(), capture_output=True, timeout=60)
+            result = subprocess.run(
+                ["semgrep", "--config=p/security-audit", "--json", "--quiet", "-"],
+                input=code.encode(),
+                capture_output=True,
+                timeout=60,
+            )
             findings = json.loads(result.stdout.decode() or "{}").get("results", [])
-            return [{"tool": "semgrep", "status": "hit", "severity": f.get("extra", {}).get("severity", "INFO")} for f in findings]
+            return [
+                {"tool": "semgrep", "status": "hit", "severity": f.get("extra", {}).get("severity", "INFO")}
+                for f in findings
+            ]
         except Exception as exc:
             return [{"tool": "semgrep", "status": "error", "message": str(exc)}]
 
@@ -127,7 +147,9 @@ class OmniWorkflow:
                 "hexstrike_recon": {"enabled": False, "findings": []},
             }
             oh_ctx = self._build_openhuman_context(task, "audit")
-            auditor_findings = self.auditor.audit_codebase(code, audit_context=audit_context, openhuman_context=asdict(oh_ctx))
+            auditor_findings = self.auditor.audit_codebase(
+                code, audit_context=audit_context, openhuman_context=asdict(oh_ctx)
+            )
             audit_results["auditor"] = auditor_findings
             audit_results["cyberstrike_bolt"] = self._run_cyberstrike_bolt_checks(code)
             audit_results["hexstrike_recon"] = self._run_hexstrike_recon(audit_context)
@@ -137,18 +159,27 @@ class OmniWorkflow:
             oh_ctx = self._build_openhuman_context(task, "review")
             review = self.reviewer.review_code(code, openhuman_context=asdict(oh_ctx))
             if audit_requested:
-                reviewer_context = [review.feedback.strip(), "", "Auditor Findings:", auditor_findings.strip(), "", f"Audit Telemetry: {json.dumps(audit_results)}"]
+                reviewer_context = [
+                    review.feedback.strip(),
+                    "",
+                    "Auditor Findings:",
+                    auditor_findings.strip(),
+                    "",
+                    f"Audit Telemetry: {json.dumps(audit_results)}",
+                ]
                 review.feedback = "\n".join(x for x in reviewer_context if x)
             review.static_checks = self._run_static_review_hooks(code)
-            review.metadata.update({
-                "telemetry": {
-                    "prism": "unknown",
-                    "nemoclaw": "unknown",
-                    "openhuman": getattr(self.reviewer, "last_openhuman_observability", {}),
-                    "audit": audit_results,
-                },
-                "openhuman_status": oh_ctx.openhuman_status,
-            })
+            review.metadata.update(
+                {
+                    "telemetry": {
+                        "prism": "unknown",
+                        "nemoclaw": "unknown",
+                        "openhuman": getattr(self.reviewer, "last_openhuman_observability", {}),
+                        "audit": audit_results,
+                    },
+                    "openhuman_status": oh_ctx.openhuman_status,
+                }
+            )
             final_review = review
             if review.status in {ReviewStatus.PASS, ReviewStatus.PASS_WITH_NOTES}:
                 break
@@ -156,7 +187,11 @@ class OmniWorkflow:
                 code = self.engineer.iterate_code(code, review.feedback, openhuman_context=asdict(oh_ctx))
 
         reflection = self.reviewer.reflect(code, final_review.feedback, openhuman_context=asdict(oh_ctx))
-        failure_class = classify_failure(final_review.feedback) if final_review.status == ReviewStatus.FAIL_WITH_FEEDBACK else "NONE"
+        failure_class = (
+            classify_failure(final_review.feedback)
+            if final_review.status == ReviewStatus.FAIL_WITH_FEEDBACK
+            else "NONE"
+        )
         review_artifact = {
             "status": final_review.status.value,
             "feedback": final_review.feedback,
