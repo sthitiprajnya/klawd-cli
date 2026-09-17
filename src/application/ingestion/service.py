@@ -32,7 +32,7 @@ class ExternalSkillIngestionService:
         return results
 
 
-def ingest_external_skills_into_manager(skill_manager: 'SkillManager') -> list[dict]:
+def ingest_external_skills_into_manager(skill_manager: "SkillManager") -> list[dict]:
     _ = skill_manager
     service = ExternalSkillIngestionService()
     return service.ingest_all()

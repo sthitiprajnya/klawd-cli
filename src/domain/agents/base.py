@@ -111,5 +111,7 @@ class BaseAgent(ABC):
         return llm_router.route(prompt, task_type=task_type, system_prompt=full_system_prompt)
 
     @abstractmethod
-    def audit_codebase(self, code_artifact: str, audit_context: dict | None = None, openhuman_context: dict | None = None) -> str:
+    def audit_codebase(
+        self, code_artifact: str, audit_context: dict | None = None, openhuman_context: dict | None = None
+    ) -> str:
         pass

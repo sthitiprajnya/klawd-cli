@@ -102,7 +102,9 @@ class SkillProvenanceManifest:
         )
 
 
-def adapt_and_validate(repo_entry: dict[str, Any], adapters: SkillAdapterRegistry, manifest: SkillProvenanceManifest) -> AdapterResult:
+def adapt_and_validate(
+    repo_entry: dict[str, Any], adapters: SkillAdapterRegistry, manifest: SkillProvenanceManifest
+) -> AdapterResult:
     repo_name = repo_entry.get("repo", "unknown")
     adapter = adapters.get(repo_entry.get("adapter_type"))
     diagnostics: list[str] = []
@@ -113,14 +115,38 @@ def adapt_and_validate(repo_entry: dict[str, Any], adapters: SkillAdapterRegistr
         is_valid, errors = validate_skill_schema(canonical)
         if not is_valid:
             diagnostics = errors
-            logger.error("Rejected skill repo after normalization", extra={"repo": repo_name, "adapter_type": adapter.adapter_type, "errors": errors})
-            manifest.record(repo=repo_name, source_path=repo_entry["path"], adapter_type=adapter.adapter_type, accepted=False, diagnostics=diagnostics)
+            logger.error(
+                "Rejected skill repo after normalization",
+                extra={"repo": repo_name, "adapter_type": adapter.adapter_type, "errors": errors},
+            )
+            manifest.record(
+                repo=repo_name,
+                source_path=repo_entry["path"],
+                adapter_type=adapter.adapter_type,
+                accepted=False,
+                diagnostics=diagnostics,
+            )
             return AdapterResult(False, None, diagnostics, adapter.adapter_type)
 
-        manifest.record(repo=repo_name, source_path=repo_entry["path"], adapter_type=adapter.adapter_type, accepted=True, diagnostics=[])
+        manifest.record(
+            repo=repo_name,
+            source_path=repo_entry["path"],
+            adapter_type=adapter.adapter_type,
+            accepted=True,
+            diagnostics=[],
+        )
         return AdapterResult(True, canonical, [], adapter.adapter_type)
     except Exception as exc:
         diagnostics = [f"adapter failure: {exc}"]
-        logger.error("Adapter execution failed", extra={"repo": repo_name, "adapter_type": adapter.adapter_type, "diagnostics": diagnostics})
-        manifest.record(repo=repo_name, source_path=repo_entry["path"], adapter_type=adapter.adapter_type, accepted=False, diagnostics=diagnostics)
+        logger.error(
+            "Adapter execution failed",
+            extra={"repo": repo_name, "adapter_type": adapter.adapter_type, "diagnostics": diagnostics},
+        )
+        manifest.record(
+            repo=repo_name,
+            source_path=repo_entry["path"],
+            adapter_type=adapter.adapter_type,
+            accepted=False,
+            diagnostics=diagnostics,
+        )
         return AdapterResult(False, None, diagnostics, adapter.adapter_type)
