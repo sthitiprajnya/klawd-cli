@@ -7,27 +7,27 @@
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
-    <div class="container">
-        <div class="header">
+    <main class="container">
+        <header class="header">
             <h1>OmniAgent Enterprise 🧠</h1>
-            <span class="badge" id="status-badge">Daemon Online</span>
-        </div>
+            <span class="badge" id="status-badge" aria-live="polite">Daemon Online</span>
+        </header>
 
-        <div class="card">
-            <h2>Active Job Queue</h2>
-            <div class="job-list" id="jobs-container">
+        <section class="card">
+            <h2 id="jobs-heading">Active Job Queue</h2>
+            <div class="job-list" id="jobs-container" aria-live="polite" aria-labelledby="jobs-heading">
                 <p>Loading jobs...</p>
             </div>
-        </div>
+        </section>
 
-        <div class="card">
+        <section class="card">
             <h2>System Intelligence</h2>
-            <h3>Absorbed Skills Context (Majin Buu)</h3>
-            <pre id="skills-container">Loading skills...</pre>
-            <h3>External Repo Provenance (latest 5)</h3>
-            <pre id="provenance-container">Loading provenance...</pre>
-        </div>
-    </div>
+            <h3 id="skills-heading">Absorbed Skills Context (Majin Buu)</h3>
+            <pre id="skills-container" tabindex="0" aria-labelledby="skills-heading" aria-live="polite">Loading skills...</pre>
+            <h3 id="provenance-heading">External Repo Provenance (latest 5)</h3>
+            <pre id="provenance-container" tabindex="0" aria-labelledby="provenance-heading" aria-live="polite">Loading provenance...</pre>
+        </section>
+    </main>
     <script src="/static/js/app.js"></script>
 </body>
 </html>
