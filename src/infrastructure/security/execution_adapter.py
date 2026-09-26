@@ -66,7 +66,6 @@ class NemoClawExecutionAdapter:
                     remediation="Use an allowed non-privileged command and retry.",
                 )
 
-
     def _tokenize_command(self, command: str) -> list[str]:
         # CVE-2025-35028 mitigation: canonicalize free-form command strings using
         # POSIX-aware tokenization before spawn so meta characters are not shell-interpreted.
@@ -87,5 +86,6 @@ class NemoClawExecutionAdapter:
         argv = self._tokenize_command(command)
         # CVE-2025-35028 mitigation: never execute through a shell.
         return subprocess.Popen(argv, shell=False)
+
 
 execution_adapter = NemoClawExecutionAdapter()

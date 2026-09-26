@@ -10,6 +10,8 @@ class ExternalSkillRepo:
     pinned_ref: str
     enabled: bool = True
     subdir: str | None = None
+
+
 @dataclass(frozen=True)
 class ExternalSkillSource:
     name: str
