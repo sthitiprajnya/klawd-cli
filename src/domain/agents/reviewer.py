@@ -52,5 +52,7 @@ class ReviewerAgent(BaseAgent):
             prompt += f"\n\nOpenHuman Context: {openhuman_context}"
         return self.process(prompt, task_type="fast")
 
-    def audit_codebase(self, code_artifact: str, audit_context: dict | None = None, openhuman_context: dict | None = None) -> str:
+    def audit_codebase(
+        self, code_artifact: str, audit_context: dict | None = None, openhuman_context: dict | None = None
+    ) -> str:
         pass

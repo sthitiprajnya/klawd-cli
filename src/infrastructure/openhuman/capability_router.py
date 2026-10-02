@@ -17,7 +17,9 @@ _DEFAULT_STAGE_CAPABILITIES: dict[str, dict[str, bool]] = {
 }
 
 
-def resolve_capabilities(stage: str, *, openhuman_available: bool, overrides: dict[str, Any] | None = None) -> CapabilityRoute:
+def resolve_capabilities(
+    stage: str, *, openhuman_available: bool, overrides: dict[str, Any] | None = None
+) -> CapabilityRoute:
     base = dict(_DEFAULT_STAGE_CAPABILITIES.get(stage, {}))
     if overrides:
         for key, value in overrides.items():

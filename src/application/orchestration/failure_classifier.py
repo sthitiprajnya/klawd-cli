@@ -65,7 +65,9 @@ def enter_self_healing_loop(error_message: str, attempts: int = 1) -> None:
     logger.info("LOGIC failure detected. Self-heal attempt %s for: %s", attempts, error_message)
     if attempts > MAX_SELF_HEAL_ATTEMPTS:
         _enqueue_dead_letter(error_message, attempts)
-        alert_human("#daemon-ops:daemon.local", f"Dead-lettered LOGIC failure after {attempts} attempts: {error_message}")
+        alert_human(
+            "#daemon-ops:daemon.local", f"Dead-lettered LOGIC failure after {attempts} attempts: {error_message}"
+        )
         return
 
     try:
