@@ -69,7 +69,9 @@ def drawer_write_lock(wing: str, room: str, hall: str, drawer_id: str):
             r.delete(lock_key)
 
 
-def _conflict_event(lock_identifier: str, expected_hash: str | None, current_hash: str, attempt: int) -> dict[str, str | int | None]:
+def _conflict_event(
+    lock_identifier: str, expected_hash: str | None, current_hash: str, attempt: int
+) -> dict[str, str | int | None]:
     event = {
         "event": "optimistic_lock_conflict",
         "lock_identifier": lock_identifier,
