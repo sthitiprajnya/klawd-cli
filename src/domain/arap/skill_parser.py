@@ -39,9 +39,7 @@ def validate_skill_schema(frontmatter: dict[str, Any]) -> tuple[bool, list[str]]
             continue
 
         if not isinstance(value, expected_type):
-            errors.append(
-                f"field '{field}' must be of type {expected_type.__name__}, got {type(value).__name__}"
-            )
+            errors.append(f"field '{field}' must be of type {expected_type.__name__}, got {type(value).__name__}")
             continue
 
         if expected_type is str and not value.strip():
