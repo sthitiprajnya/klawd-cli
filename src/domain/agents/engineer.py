@@ -6,6 +6,7 @@ Ensure code follows best practices. Do not include any malicious or offensive se
 You are capable of deep reasoning and complex algorithms.
 Output clean code with minimal commentary. If provided with feedback, iteratively improve the code."""
 
+
 class EngineerAgent(BaseAgent):
     def __init__(self):
         super().__init__(name="Bob", role="Engineer", system_prompt=ENGINEER_PROMPT)
@@ -21,5 +22,7 @@ class EngineerAgent(BaseAgent):
             prompt += f"\n\nOpenHuman Context: {openhuman_context}"
         return self.process(prompt, task_type="coding")
 
-    def audit_codebase(self, code_artifact: str, audit_context: dict | None = None, openhuman_context: dict | None = None) -> str:
+    def audit_codebase(
+        self, code_artifact: str, audit_context: dict | None = None, openhuman_context: dict | None = None
+    ) -> str:
         pass
