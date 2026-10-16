@@ -9,7 +9,7 @@ Analyze supplied code and metadata for safety, configuration hygiene, and compli
 Return concise findings suitable for reviewer context."""
 
 class AuditorAgent(BaseAgent):
-    def __init__(self, *, hexstrike_client: 'HexStrikeClient' | None = None, cyberstrike_client: 'CyberStrikeClient' | None = None):
+    def __init__(self, *, hexstrike_client: HexStrikeClient | None = None, cyberstrike_client: CyberStrikeClient | None = None):
         super().__init__(name="Dana", role="Auditor", system_prompt=AUDITOR_PROMPT)
         self.hexstrike_client = hexstrike_client or HexStrikeClient()
         self.cyberstrike_client = cyberstrike_client or CyberStrikeClient()
