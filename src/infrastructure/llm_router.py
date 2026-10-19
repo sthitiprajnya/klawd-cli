@@ -57,7 +57,14 @@ class LLMRouter:
             idx = (self._next_client_idx + offset) % count
             yield idx, self.clients[idx]
 
-    def route(self, prompt: str, task_type: str = "coding", job_id: str | None = None, token_budget: int = 4096, system_prompt: str | None = None) -> str:
+    def route(
+        self,
+        prompt: str,
+        task_type: str = "coding",
+        job_id: str | None = None,
+        token_budget: int = 4096,
+        system_prompt: str | None = None,
+    ) -> str:
         model = self.MODELS.get(task_type, self.MODELS["coding"])
 
         total_length = len(prompt) + (len(system_prompt) if system_prompt else 0)
