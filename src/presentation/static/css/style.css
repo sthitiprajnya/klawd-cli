@@ -100,3 +100,8 @@ pre {
 .status-processing { background-color: #fef3c7; color: #92400e; }
 .status-failed { background-color: #fee2e2; color: #991b1b; }
 .status-pending { background-color: #e0e7ff; color: #3730a3; }
+
+pre:focus-visible {
+    outline: 2px solid var(--accent-blue);
+    outline-offset: 2px;
+}
