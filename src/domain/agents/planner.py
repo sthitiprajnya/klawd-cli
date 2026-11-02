@@ -6,6 +6,7 @@ Focus purely on benign, constructive software engineering tasks.
 Identify dependencies between tasks and outline an execution sequence.
 Output a clear, step-by-step pipeline execution plan."""
 
+
 class PlannerAgent(BaseAgent):
     def __init__(self):
         super().__init__(name="Alice", role="Planner", system_prompt=PLANNER_PROMPT)
@@ -15,5 +16,7 @@ class PlannerAgent(BaseAgent):
             request = f"{request}\n\nOpenHuman Context: {openhuman_context}"
         return self.process(request, task_type="fast")
 
-    def audit_codebase(self, code_artifact: str, audit_context: dict | None = None, openhuman_context: dict | None = None) -> str:
+    def audit_codebase(
+        self, code_artifact: str, audit_context: dict | None = None, openhuman_context: dict | None = None
+    ) -> str:
         pass
